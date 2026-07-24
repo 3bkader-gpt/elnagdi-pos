@@ -1,4 +1,4 @@
-# alshorouk-pos
+# elnagdi-pos - نظام كاشير سوبر ماركت النجدي
 
 An Electron application with React
 
