@@ -1,0 +1,132 @@
+import React from 'react'
+
+const AddProductModal = ({
+  showAddModal,
+  setShowAddModal,
+  newProduct,
+  setNewProduct,
+  addProductBarcodeRef,
+  handleAddProduct
+}) => {
+  if (!showAddModal) return null
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content" style={{ maxWidth: '500px' }}>
+        <div className="modal-header">
+          <h2>إضافة صنف جديد للمخزن</h2>
+          <p>أدخل تفاصيل السلعة الجديدة بدقة ليتم تسجيلها بقاعدة البيانات</p>
+        </div>
+        <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="form-group">
+            <label>الباركود (Barcode) *</label>
+            <input 
+              type="text" 
+              ref={addProductBarcodeRef}
+              onFocus={(e) => e.target.select()}
+              className="form-input" 
+              value={newProduct.barcode}
+              onChange={(e) => setNewProduct(prev => ({ ...prev, barcode: e.target.value }))}
+              required
+              placeholder="مثال: 622300..."
+            />
+          </div>
+          <div className="form-group">
+            <label>اسم الصنف *</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              value={newProduct.name}
+              onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
+              required
+              placeholder="مثال: جبنة رومي قديم"
+            />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div className="form-group">
+              <label>سعر الشراء / التكلفة <span style={{fontSize:'0.75rem', color:'var(--text-muted)'}}>(شراء من المورد)</span></label>
+              <input 
+                type="number" 
+                step="any"
+                className="form-input" 
+                value={newProduct.cost_price}
+                onChange={(e) => setNewProduct(prev => ({ ...prev, cost_price: e.target.value }))}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="form-group">
+              <label>سعر البيع قطاعي * <span style={{fontSize:'0.75rem', color:'var(--text-muted)'}}>(للجمهور بالقطعة)</span></label>
+              <input 
+                type="number" 
+                step="any"
+                className="form-input" 
+                value={newProduct.retail_price}
+                onChange={(e) => setNewProduct(prev => ({ ...prev, retail_price: e.target.value }))}
+                required
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div className="form-group">
+              <label>سعر الجملة <span style={{fontSize:'0.75rem', color:'var(--text-muted)'}}>(للتجار والكميات)</span></label>
+              <input 
+                type="number" 
+                step="any"
+                className="form-input" 
+                value={newProduct.wholesale_price}
+                onChange={(e) => setNewProduct(prev => ({ ...prev, wholesale_price: e.target.value }))}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="form-group">
+              <label>الكمية الحالية بالمخزن</label>
+              <input 
+                type="number" 
+                step="any"
+                className="form-input" 
+                value={newProduct.stock_qty}
+                onChange={(e) => setNewProduct(prev => ({ ...prev, stock_qty: e.target.value }))}
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div className="form-group">
+              <label>حد الطلب (إنذار النقص)</label>
+              <input 
+                type="number" 
+                step="any"
+                className="form-input" 
+                value={newProduct.reorder_limit}
+                onChange={(e) => setNewProduct(prev => ({ ...prev, reorder_limit: e.target.value }))}
+                placeholder="5"
+              />
+            </div>
+            <div className="form-group">
+              <label>الوحدة (كيلو/علبة/قطعة)</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={newProduct.unit}
+                onChange={(e) => setNewProduct(prev => ({ ...prev, unit: e.target.value }))}
+                placeholder="علبة"
+              />
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+            <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowAddModal(false)}>
+              إلغاء
+            </button>
+            <button type="submit" className="btn btn-success" style={{ flex: 1 }}>
+              حفظ الصنف
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default AddProductModal
