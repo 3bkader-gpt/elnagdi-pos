@@ -4,7 +4,7 @@ const { spawn } = require('child_process');
 
 const rootDir = path.join(__dirname, '..');
 const sqlitePath = path.join(rootDir, 'sqlite3.exe');
-const prodDbPath = path.join(process.env.APPDATA, 'alshorouk-pos', 'market_unified.db');
+const prodDbPath = path.join(process.env.APPDATA, 'elnagdi-pos', 'market_unified.db');
 const testDbPath = path.join(__dirname, 'temp_test.db');
 
 // Execute SQL queries on the test database
