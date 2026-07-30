@@ -28,14 +28,14 @@ const EditUserModal = ({
             />
           </div>
           <div className="form-group">
-            <label>رمز المرور / PIN (4 أرقام) *</label>
+            <label>رمز المرور الجديد (4 أرقام - اتركه كـ •••• لعدم التغيير) *</label>
             <input 
               type="text" 
-              pattern="\d{4}"
+              pattern="\d{4}|••••"
               maxLength="4"
               className="form-input" 
               value={editUser.pin}
-              onChange={(e) => setEditUser(prev => ({ ...prev, pin: e.target.value.replace(/\D/g, '') }))}
+              onChange={(e) => setEditUser(prev => ({ ...prev, pin: e.target.value }))}
               required
             />
           </div>

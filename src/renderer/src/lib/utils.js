@@ -9,7 +9,21 @@
  */
 export function escapeSql(str) {
   if (!str) return ''
-  return str.replace(/'/g, "''")
+  return str.toString()
+    .replace(/\0/g, '')
+    .replace(/'/g, "''")
+}
+
+/**
+ * Generates SHA-256 hash of a string using Web Crypto API.
+ */
+export async function hashPin(pin) {
+  if (!pin) return ''
+  const encoder = new TextEncoder()
+  const data = encoder.encode(pin.toString().trim())
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
 /**
@@ -29,6 +43,17 @@ export function normalizeDigits(str) {
   return res
 }
 
+let _audioCtx = null
+function getAudioCtx() {
+  if (!_audioCtx || _audioCtx.state === 'closed') {
+    const AudioContext = window.AudioContext || window.webkitAudioContext
+    if (AudioContext) {
+      _audioCtx = new AudioContext()
+    }
+  }
+  return _audioCtx
+}
+
 /**
  * Plays an audio feedback tone using the Web Audio API.
  * 100% offline — no external sound files required.
@@ -36,9 +61,8 @@ export function normalizeDigits(str) {
  */
 export function playSound(type) {
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext
-    if (!AudioContext) return
-    const ctx = new AudioContext()
+    const ctx = getAudioCtx()
+    if (!ctx) return
 
     if (type === 'success') {
       const osc  = ctx.createOscillator()
@@ -89,12 +113,12 @@ export function playSound(type) {
  * Supporting formats like "19/7/2026 12:01:59 PM", "١٩‏/٧‏/٢٠٢٦ ١٢:٠١:٥٩ ص", "2026-07-19 12:01:59".
  */
 export function parseLocaleDateString(str) {
-  if (!str) return new Date(0)
+  if (!str) return null
   let clean = normalizeDigits(str.toString())
   clean = clean.replace(/[\u200e\u200f]/g, '') // Remove RTL/LTR marks
   
   const dateMatch = clean.match(/(\d+)[\/\-](\d+)[\/\-](\d+)/)
-  if (!dateMatch) return new Date(0)
+  if (!dateMatch) return null
 
   let day, month, year
   if (dateMatch[1].length === 4) {
@@ -117,8 +141,54 @@ export function parseLocaleDateString(str) {
 
   const isPM = clean.includes('م') || clean.toLowerCase().includes('pm')
   const isAM = clean.includes('ص') || clean.toLowerCase().includes('am')
-  if (isPM && hours < 12) hours += 12
+  if (isPM && hours !== 12) hours += 12
   if (isAM && hours === 12) hours = 0
 
   return new Date(year, month, day, hours, minutes, seconds)
+}
+
+/**
+ * Returns standard YYYY-MM-DD HH:mm:ss format for local date time.
+ */
+export function getNowStr(d = new Date()) {
+  const pad = (n) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+/**
+ * Maps SQLite DB and network errors to friendly Arabic messages for display.
+ */
+export function getFriendlyErrorMessage(err) {
+  if (!err) return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.'
+  const msg = err.message || err.toString()
+  if (msg.includes('UNIQUE constraint failed: clients.phone')) {
+    return 'خطأ: رقم هاتف العميل هذا مسجل بالفعل لعميل آخر.'
+  }
+  if (msg.includes('UNIQUE constraint failed: suppliers.phone')) {
+    return 'خطأ: رقم هاتف المورد هذا مسجل بالفعل لمورد آخر.'
+  }
+  if (msg.includes('UNIQUE constraint failed: products.barcode')) {
+    return 'خطأ: رمز الباركود هذا مسجل بالفعل لمنتج آخر.'
+  }
+  if (msg.includes('FOREIGN KEY constraint failed')) {
+    return 'خطأ: لا يمكن إتمام العملية أو الحذف لارتباط هذا السجل ببيانات أخرى مسجلة بالنظام.'
+  }
+  if (msg.includes('prevent_negative_stock') || msg.includes('نفاد الكمية') || msg.includes('stock')) {
+    return 'خطأ: كمية الصنف المطلوبة غير متوفرة بالكامل في المخزن.'
+  }
+  if (msg.includes('prevent_sale_on_closed_shift') || msg.includes('وردية مغلقة') || msg.includes('closed')) {
+    return 'خطأ: لا يمكن التسجيل لأن الوردية مغلقة حالياً. يرجى فتح وردية جديدة.'
+  }
+  if (msg.includes('prevent_multiple_open_shifts') || msg.includes('وردية مفتوحة بالفعل')) {
+    return 'خطأ: يوجد وردية مفتوحة بالفعل لهذا المستخدم.'
+  }
+  return msg || 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.'
+}
+
+/**
+ * Rounds a number to exactly 2 decimal places to avoid floating-point inaccuracies.
+ */
+export function round2(n) {
+  const val = parseFloat(n) || 0
+  return Math.round((val + Number.EPSILON) * 100) / 100
 }

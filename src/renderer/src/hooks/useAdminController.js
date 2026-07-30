@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { executeQuery } from '../lib/db'
-import { parseLocaleDateString } from '../lib/utils'
+import { parseLocaleDateString, getNowStr } from '../lib/utils'
 import { useClientsManager } from './useClientsManager'
 import { useSuppliersManager } from './useSuppliersManager'
 import { useChecksManager } from './useChecksManager'
@@ -55,15 +55,8 @@ export function useAdminController({ currentShift, currentUser, setToastMessage,
         sinceDate.setDate(sinceDate.getDate() - days)
         sinceDate.setHours(0, 0, 0, 0)
 
-        // Fetch all shifts
-        const shifts = await executeQuery('SELECT id, start_time FROM shifts;')
-        
-        // Filter matching shifts
-        const matchingShifts = shifts.filter((sh) => {
-          if (!sh.start_time) return false
-          const parsed = parseLocaleDateString(sh.start_time)
-          return parsed >= sinceDate
-        })
+        const sinceStr = getNowStr(sinceDate)
+        const matchingShifts = await executeQuery(`SELECT id FROM shifts WHERE start_time >= '${sinceStr}';`)
         const ids = matchingShifts.map((sh) => sh.id)
         if (ids.length > 0) {
           shiftIdsFilter = ids.join(',')
@@ -260,6 +253,7 @@ export function useAdminController({ currentShift, currentUser, setToastMessage,
     await productsManager.fetchInventoryPage(1, '')
     await fetchAnalytics()
     await salesManager.fetchSalesHistory()
+    await bestSellersManager.fetchBestSellers(bestSellersManager.bsPeriod)
     await usersManager.fetchUsersList()
     await clientsManager.fetchClientsList()
     await clientsManager.fetchClientStats()
@@ -316,6 +310,9 @@ export function useAdminController({ currentShift, currentUser, setToastMessage,
     selectSaleForDetail: salesManager.selectSaleForDetail,
     handleReturnItem: salesManager.handleReturnItem,
     handleReturnEntireSale: salesManager.handleReturnEntireSale,
+    salesPage: salesManager.salesPage,
+    salesTotalCount: salesManager.salesTotalCount,
+    itemsPerPage: salesManager.itemsPerPage,
 
     // clientsManager
     clientsList: clientsManager.clientsList,

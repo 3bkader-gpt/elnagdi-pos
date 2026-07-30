@@ -277,8 +277,10 @@
 }
 
 .catalog-search-wrapper {
-  flex: 1;
-  overflow: hidden;
+  flex: 0 0 auto;
+  overflow: visible;
+  position: relative;
+  z-index: 100;
 }
 
 /* Scanner styles */
@@ -328,26 +330,39 @@
 .search-input {
   width: 100%;
   padding: 10px 12px 10px 35px;
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  border: 2px solid var(--accent-blue);
   border-radius: 6px;
   color: var(--text-primary);
   font-size: 0.95rem;
+  font-weight: 500;
   transition: var(--transition-smooth);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--accent-blue);
+  border-color: var(--accent-blue-hover);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 /* Search results listing */
 .search-results-list {
-  flex: 1;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 350px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  padding: 8px;
+  margin-top: 5px;
 }
 
 .search-item {

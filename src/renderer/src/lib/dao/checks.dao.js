@@ -1,5 +1,5 @@
 import { executeQuery } from '../db'
-import { escapeSql } from '../utils'
+import { escapeSql, getNowStr } from '../utils'
 
 /**
  * Get all checks ordered by due date.
@@ -33,7 +33,7 @@ export async function getChecksDueToday() {
  * @returns {Promise<void>}
  */
 export async function addCheck({ check_type, check_number, bank_name, party_name, issue_date, due_date, amount, notes }) {
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
   await executeQuery(`
     INSERT INTO checks_register (check_type, check_number, bank_name, party_name, issue_date, due_date, amount, status, notes, created_at)
     VALUES (

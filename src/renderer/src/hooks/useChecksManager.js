@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { executeQuery } from '../lib/db'
-import { escapeSql } from '../lib/utils'
+import { escapeSql, getNowStr, getFriendlyErrorMessage} from '../lib/utils'
 
 export function useChecksManager({ triggerCustomAlert, triggerCustomConfirm }) {
   const [checksList, setChecksList] = useState([])
@@ -19,12 +19,11 @@ export function useChecksManager({ triggerCustomAlert, triggerCustomConfirm }) {
 
   const fetchChecksDueToday = async () => {
     try {
-      const today = new Date().toLocaleDateString('ar-EG')
       const todayISO = new Date().toISOString().split('T')[0]
       const res = await executeQuery(`
         SELECT * FROM checks_register
         WHERE status = 'غير مسدد'
-          AND (due_date = '${todayISO}' OR due_date LIKE '%${new Date().getDate()}%')
+          AND due_date = '${todayISO}'
         ORDER BY due_date ASC;
       `)
       setChecksDueToday(res || [])
@@ -40,7 +39,7 @@ export function useChecksManager({ triggerCustomAlert, triggerCustomConfirm }) {
       return
     }
     try {
-      const nowStr = new Date().toLocaleString('ar-EG')
+      const nowStr = getNowStr()
       await executeQuery(`
         INSERT INTO checks_register (check_type, check_number, bank_name, party_name, issue_date, due_date, amount, status, notes, created_at)
         VALUES ('${escapeSql(newCheckForm.check_type)}', '${escapeSql(newCheckForm.check_number)}',
@@ -52,7 +51,7 @@ export function useChecksManager({ triggerCustomAlert, triggerCustomConfirm }) {
       setNewCheckForm({ check_type: 'مورد', check_number: '', bank_name: '', party_name: '', issue_date: '', due_date: '', amount: '', notes: '' })
       await fetchChecksList()
     } catch (err) {
-      triggerCustomAlert('فشل إضافة الشيك: ' + err.message)
+      triggerCustomAlert('فشل إضافة الشيك: ' + getFriendlyErrorMessage(err))
     }
   }
 
@@ -63,7 +62,7 @@ export function useChecksManager({ triggerCustomAlert, triggerCustomConfirm }) {
         await fetchChecksList()
         await fetchChecksDueToday()
       } catch (err) {
-        triggerCustomAlert('فشل تحديث الشيك: ' + err.message)
+        triggerCustomAlert('فشل تحديث الشيك: ' + getFriendlyErrorMessage(err))
       }
     })
   }
@@ -78,7 +77,7 @@ export function useChecksManager({ triggerCustomAlert, triggerCustomConfirm }) {
         if (err.message && err.message.includes('FOREIGN KEY')) {
           triggerCustomAlert('لا يمكن حذف هذا الشيك لأنه مرتبط بمعاملات أخرى بالنظام.')
         } else {
-          triggerCustomAlert('فشل حذف الشيك: ' + err.message)
+          triggerCustomAlert('فشل حذف الشيك: ' + getFriendlyErrorMessage(err))
         }
       }
     })

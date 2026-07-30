@@ -78,7 +78,7 @@ export async function addProduct({ barcode, name, cost_price, retail_price, whol
       ${parseFloat(wholesale_price) || 0}, 
       ${parseFloat(stock_qty) || 0}, 
       ${parseFloat(reorder_limit) || 0}, 
-      '${escapeSql(unit) || 'علبة'}'
+      '${escapeSql(unit) || ''}'
     );
   `)
 }
@@ -97,7 +97,7 @@ export async function updateProduct({ barcode, name, cost_price, retail_price, w
         wholesale_price = ${parseFloat(wholesale_price) || 0}, 
         stock_qty = ${parseFloat(stock_qty) || 0}, 
         reorder_limit = ${parseFloat(reorder_limit) || 0}, 
-        unit = '${escapeSql(unit) || 'علبة'}'
+        unit = '${escapeSql(unit) || ''}'
     WHERE barcode = '${escapeSql(barcode)}';
   `)
 }

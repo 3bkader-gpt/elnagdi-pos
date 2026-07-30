@@ -44,8 +44,42 @@ function CheckoutTerminal({
   setSearchInput,
   setSearchResults,
   setSelectedSearchIndex,
-  scannerStateRef
+  noPrint,
+  setNoPrint,
+  depositChange,
+  setDepositChange,
+  appliedCredit,
+  setAppliedCredit,
+  selectedClient
 }) {
+  const handlePrintShortages = async () => {
+    if (!dbStats.lowStockItems || dbStats.lowStockItems.length === 0) return
+    try {
+      const mappedItems = dbStats.lowStockItems.map((item) => ({
+        name: item.name,
+        stock_qty: item.stock_qty,
+        min_limit: item.reorder_limit
+      }))
+      await window.api.generateShortagesPdf(mappedItems)
+    } catch (e) {
+      console.error('PDF export error:', e)
+    }
+  }
+
+  const handlePrintShortagesToPaper = async () => {
+    if (!dbStats.lowStockItems || dbStats.lowStockItems.length === 0) return
+    try {
+      const mappedItems = dbStats.lowStockItems.map((item) => ({
+        name: item.name,
+        stock_qty: item.stock_qty,
+        min_limit: item.reorder_limit
+      }))
+      await window.api.printShortagesToPrinter(mappedItems)
+    } catch (e) {
+      console.error('Direct print error:', e)
+    }
+  }
+
   return (
     <>
       <main className="pos-grid">
@@ -152,7 +186,7 @@ function CheckoutTerminal({
             </div>
 
             {/* Customer details & Optional Delivery */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', position: 'relative' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', position: 'relative', zIndex: 10 }}>
               <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <input 
@@ -190,6 +224,95 @@ function CheckoutTerminal({
                   value={clientAddress}
                   onChange={(e) => setClientAddress(e.target.value)}
                 />
+              )}
+              
+              {/* تفاصيل رصيد العميل وخيار استهلاك الرصيد */}
+              {selectedClient && (
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '6px', width: '100%' }}>
+                  <div>
+                    {selectedClient.debt_balance < 0 ? (
+                      <span style={{ color: 'var(--accent-emerald)', fontWeight: 'bold' }}>
+                        رصيد متوفر للعميل: {Math.abs(selectedClient.debt_balance).toFixed(2)} ج.م
+                      </span>
+                    ) : selectedClient.debt_balance > 0 ? (
+                      <span style={{ color: 'var(--accent-rose)', fontWeight: 'bold' }}>
+                        مديونية سابقة على العميل: {selectedClient.debt_balance.toFixed(2)} ج.م
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>ليس لديه رصيد أو مديونية</span>
+                    )}
+                  </div>
+                  {selectedClient.debt_balance < 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{
+                          padding: '3px 8px',
+                          fontSize: '0.75rem',
+                          background: appliedCredit > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit'
+                        }}
+                        onClick={() => {
+                          if (appliedCredit > 0) {
+                            setAppliedCredit(0)
+                          } else {
+                            const maxUsable = Math.min(Math.abs(selectedClient.debt_balance), cartTotal + appliedCredit)
+                            setAppliedCredit(maxUsable)
+                          }
+                        }}
+                      >
+                        {appliedCredit > 0 ? 'إلغاء الخصم' : 'خصم من الرصيد'}
+                      </button>
+                      {appliedCredit > 0 && (
+                        <span style={{ fontWeight: 'bold', color: 'var(--accent-emerald)' }}>
+                          تم خصم: {appliedCredit.toFixed(2)} ج.م
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* خيار حفظ الباقي بالرصيد */}
+              {changeRemaining > 0 && selectedClient && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', background: 'rgba(245,158,11,0.08)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(245,158,11,0.2)', width: '100%' }}>
+                  <label htmlFor="deposit-change-input" style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    المبلغ المراد حفظه كـ رصيد للعميل:
+                  </label>
+                  <input
+                    type="number"
+                    id="deposit-change-input"
+                    value={depositChange}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === '' || (!isNaN(val) && parseFloat(val) >= 0)) {
+                        setDepositChange(val)
+                      }
+                    }}
+                    placeholder="0.00"
+                    max={changeRemaining}
+                    min={0}
+                    step="0.01"
+                    style={{
+                      width: '80px',
+                      padding: '3px 6px',
+                      borderRadius: '4px',
+                      background: 'var(--bg-main)',
+                      border: '1px solid #f59e0b',
+                      color: '#f59e0b',
+                      fontWeight: 'bold',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    (الحد الأقصى: {changeRemaining.toFixed(2)} ج.م)
+                  </span>
+                </div>
               )}
               {clientSearchResults.length > 0 && (
                 <div className="client-autocomplete-dropdown" style={{
@@ -244,12 +367,20 @@ function CheckoutTerminal({
                   نقدي
                 </button>
                 <button 
-                  className={`btn ${paymentType === 'شيك' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setPaymentType('شيك')}
+                  className={`btn ${paymentType === 'فودافون كاش' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setPaymentType('فودافون كاش')}
                   style={{ padding: '6px 12px', fontSize: '0.85rem', flex: 1 }}
                 >
                   <CreditCard size={16} />
-                  شيك
+                  فودافون
+                </button>
+                <button 
+                  className={`btn ${paymentType === 'انستا باي' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setPaymentType('انستا باي')}
+                  style={{ padding: '6px 12px', fontSize: '0.85rem', flex: 1 }}
+                >
+                  <CreditCard size={16} />
+                  انستا باي
                 </button>
                 <button 
                   className={`btn ${paymentType === 'آجل' ? 'btn-primary' : 'btn-secondary'}`}
@@ -274,9 +405,21 @@ function CheckoutTerminal({
                 </div>
               </div>
 
-              <button className="btn btn-success" style={{ width: '220px', fontSize: '1rem', height: '48px' }} onClick={handleCheckout}>
+              <button
+                className={`btn ${noPrint ? 'btn-danger' : 'btn-success'}`}
+                style={{ width: '220px', fontSize: '1rem', height: '48px' }}
+                onClick={handleCheckout}
+              >
                 <CheckCircle size={20} />
-                تأكيد الدفع (F1)
+                {noPrint ? 'تأكيد (بدون فاتورة) (F1)' : 'تأكيد الدفع (F1)'}
+              </button>
+              <button
+                className={`btn ${noPrint ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '6px 12px', fontSize: '0.78rem', height: '48px', whiteSpace: 'nowrap' }}
+                onClick={() => setNoPrint(p => !p)}
+                title={noPrint ? 'الطباعة معطّلة — اضغط لتفعيلها' : 'الطباعة مفعّلة — اضغط لإيقافها'}
+              >
+                {noPrint ? '🚫 فاتورة' : '🖨️ فاتورة'}
               </button>
             </div>
           </div>
@@ -327,12 +470,13 @@ function CheckoutTerminal({
               />
             </div>
 
-            <div className="search-results-list">
-              {searchResults.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '30px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  {searchInput ? 'لا توجد نتائج مطابقة' : 'اكتب للبحث السريع في قاعدة البيانات...'}
-                </div>
-              ) : (
+            {searchInput && (
+              <div className="search-results-list">
+                {searchResults.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '20px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    لا توجد نتائج مطابقة
+                  </div>
+                ) : (
                 searchResults.map((item, index) => (
                   <div 
                     key={item.barcode} 
@@ -360,21 +504,44 @@ function CheckoutTerminal({
                 ))
               )}
             </div>
+            )}
           </div>
 
           {/* Active Shortcuts & Warnings info card */}
-          <div className="panel-card">
-            <h3 style={{ fontSize: '0.85rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', marginBottom: '8px' }}>قواعد الجرد ونواقص المخزون</h3>
+          <div className="panel-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', marginBottom: '8px', flexShrink: 0 }}>
+              <h3 style={{ fontSize: '0.85rem', margin: 0 }}>قواعد الجرد ونواقص المخزون</h3>
+              {dbStats.lowStock > 0 && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button" 
+                    title="طباعة النواقص على الفاتورة" 
+                    onClick={handlePrintShortagesToPaper}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--accent-emerald)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', fontSize: '1rem' }}
+                  >
+                    🖨️
+                  </button>
+                  <button 
+                    type="button" 
+                    title="تصدير النواقص كـ PDF" 
+                    onClick={handlePrintShortages}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--accent-rose)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', fontSize: '1rem' }}
+                  >
+                    📄
+                  </button>
+                </div>
+              )}
+            </div>
             {dbStats.lowStock > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'rgba(244, 63, 94, 0.08)', borderRadius: '6px', color: 'var(--accent-rose)', fontSize: '0.8rem', fontWeight: 'bold' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'rgba(244, 63, 94, 0.08)', borderRadius: '6px', color: 'var(--accent-rose)', fontSize: '0.8rem', fontWeight: 'bold', flexShrink: 0 }}>
                   <AlertTriangle size={16} />
                   <span>هناك ({dbStats.lowStock}) صنف تحت حد الطلب!</span>
                 </div>
                 
                 {/* List of shortaged items */}
                 <div style={{ 
-                  maxHeight: '120px', 
+                  flex: 1, 
                   overflowY: 'auto', 
                   fontSize: '0.75rem', 
                   background: 'rgba(255,255,255,0.01)', 

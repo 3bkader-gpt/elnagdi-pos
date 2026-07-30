@@ -1,5 +1,5 @@
 import { executeQuery } from '../db'
-import { escapeSql } from '../utils'
+import { escapeSql, getNowStr } from '../utils'
 
 /**
  * Get sales history list, filtered optionally by invoice number, client name, or date.
@@ -7,7 +7,7 @@ import { escapeSql } from '../utils'
  * @param {string} search 
  * @returns {Promise<object[]>}
  */
-export async function getSalesHistory(search = '') {
+export async function getSalesHistory(search = '', limit = 100, offset = 0) {
   const escaped = escapeSql(search.trim())
   let query = `
     SELECT s.*, u.username, 
@@ -25,7 +25,7 @@ export async function getSalesHistory(search = '') {
       query += ` WHERE s.client_name LIKE '%${escaped}%' OR s.timestamp LIKE '%${escaped}%'`
     }
   }
-  query += ` ORDER BY s.id DESC LIMIT 100;`
+  query += ` ORDER BY s.id DESC LIMIT ${limit} OFFSET ${offset};`
   return await executeQuery(query)
 }
 
@@ -70,7 +70,7 @@ export async function getSaleWithItems(saleId) {
  */
 export async function returnSaleItem({ saleItem, qtyToReturn, shiftId }) {
   const refundAmount = qtyToReturn * saleItem.unit_price
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
   const cleanShiftId = shiftId && shiftId !== 'NULL' ? shiftId : 'NULL'
 
   // Fetch parent sale info to check if it was a credit sale
@@ -113,7 +113,7 @@ export async function returnSaleItem({ saleItem, qtyToReturn, shiftId }) {
  */
 export async function returnEntireSale({ saleId, refundAmount, shiftId }) {
   const items = await executeQuery(`SELECT * FROM sale_items WHERE sale_id = ${saleId};`)
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
   const cleanShiftId = shiftId && shiftId !== 'NULL' ? shiftId : 'NULL'
   
   // Fetch parent sale info to check if it was a credit sale
@@ -123,9 +123,12 @@ export async function returnEntireSale({ saleId, refundAmount, shiftId }) {
 
   let sql = 'BEGIN TRANSACTION;\n'
   items.forEach(item => {
-    sql += `UPDATE products SET stock_qty = stock_qty + ${item.quantity} WHERE barcode = '${escapeSql(item.product_barcode)}';\n`
+    const remainingQty = item.quantity - (item.returned_qty || 0)
+    if (remainingQty > 0) {
+      sql += `UPDATE products SET stock_qty = stock_qty + ${remainingQty} WHERE barcode = '${escapeSql(item.product_barcode)}';\n`
+    }
   })
-  sql += `DELETE FROM sale_items WHERE sale_id = ${saleId};\n`
+  sql += `UPDATE sale_items SET returned_qty = quantity, total_price = 0 WHERE sale_id = ${saleId};\n`
   sql += `UPDATE sales SET total_amount = 0, discount = 0 WHERE id = ${saleId};\n`
   
   if (isCredit && clientId) {
@@ -149,7 +152,7 @@ export async function returnEntireSale({ saleId, refundAmount, shiftId }) {
  * @returns {Promise<number>} Returns the newly generated invoice ID.
  */
 export async function createSaleTransaction({ shiftId, cart, cartTotal, discount, paymentType, clientName, clientId }) {
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
   const clientDbValue = clientName || 'عميل نقدي'
   const finalDiscount = parseFloat(discount) || 0
   
@@ -172,7 +175,7 @@ export async function createSaleTransaction({ shiftId, cart, cartTotal, discount
 
   // If debt/points/payment update for clients
   if (clientId) {
-    const pointsEarned = Math.floor(cartTotal / 10)
+    const pointsEarned = Math.floor(cartTotal / 100)
     sqlQuery += `UPDATE clients SET points = points + ${pointsEarned} WHERE id = ${clientId};\n`
     if (paymentType === 'آجل') {
       sqlQuery += `UPDATE clients SET debt_balance = debt_balance + ${cartTotal} WHERE id = ${clientId};\n`

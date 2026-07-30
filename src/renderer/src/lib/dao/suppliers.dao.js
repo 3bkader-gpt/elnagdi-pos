@@ -1,5 +1,5 @@
 import { executeQuery } from '../db'
-import { escapeSql } from '../utils'
+import { escapeSql, getNowStr } from '../utils'
 
 /**
  * Get suppliers list, optionally filtered by name/phone.
@@ -37,7 +37,7 @@ export async function getSupplierProfile(supplierId) {
  * @returns {Promise<void>}
  */
 export async function addSupplier({ name, phone, address, contact_person }) {
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
   await executeQuery(`
     INSERT INTO suppliers (name, phone, address, contact_person, debt_balance, created_at)
     VALUES ('${escapeSql(name)}', '${escapeSql(phone)}', '${escapeSql(address)}', '${escapeSql(contact_person)}', 0.0, '${nowStr}');
@@ -51,7 +51,7 @@ export async function addSupplier({ name, phone, address, contact_person }) {
  * @returns {Promise<void>}
  */
 export async function addSupplierPurchase({ supplierId, supplierName, invoice_ref, total, paid, payment_type, notes, shiftId }) {
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
   const remaining = total - paid
   const cleanShiftId = shiftId && shiftId !== 'NULL' ? shiftId : 'NULL'
 
@@ -79,7 +79,7 @@ export async function addSupplierPurchase({ supplierId, supplierName, invoice_re
  * @returns {Promise<void>}
  */
 export async function recordSupplierRepay({ supplierId, supplierName, amount, shiftId }) {
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
   const cleanShiftId = shiftId && shiftId !== 'NULL' ? shiftId : 'NULL'
 
   let sql = 'BEGIN TRANSACTION;\n'

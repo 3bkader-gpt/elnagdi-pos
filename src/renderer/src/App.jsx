@@ -3,7 +3,7 @@ import {
   ShoppingCart, Lock, User, Clock, CheckCircle, AlertTriangle, Key, LogOut
 } from 'lucide-react'
 
-import { playSound } from './lib/utils'
+import { playSound, getNowStr} from './lib/utils'
 import { executeQuery } from './lib/db'
 
 // Import Custom Hooks
@@ -66,6 +66,7 @@ function App() {
   } = useShift()
 
   const [showChangePinModal, setShowChangePinModal] = useState(false)
+  const [noPrint, setNoPrint] = useState(false)
 
   // Custom non-blocking alert state
   const [customAlert, setCustomAlert] = useState(null)
@@ -116,6 +117,10 @@ function App() {
     setClientPhone,
     isDelivery,
     setIsDelivery,
+    depositChange,
+    setDepositChange,
+    appliedCredit,
+    setAppliedCredit,
     cartTotal,
     changeDue,
     addToCart,
@@ -212,7 +217,12 @@ function App() {
     setClientPhone,
     isDelivery,
     setIsDelivery,
+    depositChange,
+    setDepositChange,
+    appliedCredit,
+    setAppliedCredit,
     cartTotal,
+    cartSubtotal,
     addToCart,
     triggerClearCart,
     updateQty,
@@ -220,6 +230,7 @@ function App() {
     searchInputRef,
     qtyInputRefs,
     printSilent: true,
+    noPrint,
     setToastMessage,
     setCurrentView,
     fetchStats: () => adminController.fetchStats(),
@@ -331,7 +342,7 @@ function App() {
     
     try {
       const diff = actual - auditExpectedCash
-      const nowStr = new Date().toLocaleString('ar-EG')
+      const nowStr = getNowStr()
       
       // Insert record
       await executeQuery(`
@@ -487,12 +498,19 @@ function App() {
           paymentType={paymentType}
           setPaymentType={setPaymentType}
           cartTotal={cartTotal}
+          depositChange={depositChange}
+          setDepositChange={setDepositChange}
+          appliedCredit={appliedCredit}
+          setAppliedCredit={setAppliedCredit}
+          selectedClient={selectedClient}
           handleCheckout={handleCheckout}
           barcodeInputRef={barcodeInputRef}
           barcodeInput={barcodeInput}
           setBarcodeInput={setBarcodeInput}
           handleBarcodeSubmit={handleBarcodeSubmit}
           dbStats={adminController.dbStats}
+          noPrint={noPrint}
+          setNoPrint={setNoPrint}
           searchInputRef={searchInputRef}
           searchInput={searchInput}
           handleSearchChange={handleSearchChange}

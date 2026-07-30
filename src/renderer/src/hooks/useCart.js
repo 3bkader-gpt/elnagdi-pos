@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { round2 } from '../lib/utils'
 
 /**
  * Custom hook for POS checkout cart state management.
@@ -15,15 +16,17 @@ export function useCart({ playSound, triggerCustomAlert }) {
   const [clientName, setClientName] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [isDelivery, setIsDelivery] = useState(false)
+  const [depositChange, setDepositChange] = useState('')
+  const [appliedCredit, setAppliedCredit] = useState(0)
 
-  // Derived state: Cart subtotal before discount
-  const subTotal = cart.reduce((sum, item) => sum + (item.total || 0), 0)
+  // Derived state: Cart subtotal before discount and credit
+  const subTotal = round2(cart.reduce((sum, item) => sum + (item.total || 0), 0))
   
-  // Derived state: Cart total after discount
-  const cartTotal = Math.max(0, subTotal - (parseFloat(discount) || 0))
-
+  // Derived state: Cart total after discount and applied credit
+  const cartTotal = round2(Math.max(0, subTotal - (parseFloat(discount) || 0) - (parseFloat(appliedCredit) || 0)))
+ 
   // Derived state: Change due back to customer
-  const changeDue = paidAmount ? Math.max(0, (parseFloat(paidAmount) || 0) - cartTotal) : 0
+  const changeDue = paidAmount ? round2(Math.max(0, (parseFloat(paidAmount) || 0) - cartTotal)) : 0
 
   const addToCart = (product, customQty = 1) => {
     const availableStock = product.stock_qty || 0
@@ -55,7 +58,7 @@ export function useCart({ playSound, triggerCustomAlert }) {
             price: product.retail_price || 0.0,
             cost_price: product.cost_price || 0.0,
             qty: customQty,
-            unit: product.unit || 'علبة',
+            unit: product.unit || '',
             total: (product.retail_price || 0.0) * customQty,
             stock_qty: availableStock
           }
@@ -106,6 +109,7 @@ export function useCart({ playSound, triggerCustomAlert }) {
     setCart([])
     setDiscount(0)
     setPaidAmount('')
+    setPaymentType('نقدي')
   }
 
   return {
@@ -123,6 +127,10 @@ export function useCart({ playSound, triggerCustomAlert }) {
     setClientPhone,
     isDelivery,
     setIsDelivery,
+    depositChange,
+    setDepositChange,
+    appliedCredit,
+    setAppliedCredit,
     subTotal,
     cartTotal,
     changeDue,

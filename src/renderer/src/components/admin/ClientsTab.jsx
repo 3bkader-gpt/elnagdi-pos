@@ -128,7 +128,7 @@ export default function ClientsTab({
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>عميل الشهر الأكثر شراءً</div>
               <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{bestCustomerOfMonth ? bestCustomerOfMonth.name : 'لا يوجد'}</div>
-              {bestCustomerOfMonth && <div style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)' }}>💸 {bestCustomerOfMonth.monthlySpent.toFixed(2)} ج.م</div>}
+              {bestCustomerOfMonth && <div style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)' }}>💸 {(bestCustomerOfMonth.monthlySpent || 0).toFixed(2)} ج.م</div>}
             </div>
           </div>
         </div>
@@ -174,7 +174,7 @@ export default function ClientsTab({
               <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>إجمالي المديونية الحالية</div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--accent-rose)', marginTop: '4px' }}>
-                  {selectedAdminClient.debt_balance.toFixed(2)} ج.م
+                  {(selectedAdminClient.debt_balance || 0).toFixed(2)} ج.م
                 </div>
               </div>
               <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
@@ -304,7 +304,7 @@ export default function ClientsTab({
                               <td style={{ fontWeight: 'bold', color: l.type === 'payment' ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
                                 {l.type === 'payment' ? 'سداد دين' : 'مشتريات آجل'}
                               </td>
-                              <td style={{ fontWeight: 'bold' }}>{l.amount.toFixed(2)} ج.م</td>
+                              <td style={{ fontWeight: 'bold' }}>{(l.amount || 0).toFixed(2)} ج.م</td>
                               <td>
                                 {l.description}
                                 {saleId && (
@@ -316,13 +316,22 @@ export default function ClientsTab({
                               <td>{l.timestamp}</td>
                               <td>
                                 {saleId ? (
-                                  <button
-                                    className="btn btn-sm btn-secondary"
-                                    style={{ padding: '2px 6px', fontSize: '0.75rem' }}
-                                    onClick={(e) => { e.stopPropagation(); handleOpenInvoiceDetails(saleId); }}
-                                  >
-                                    عرض
-                                  </button>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                    <button
+                                      className="btn btn-sm btn-secondary"
+                                      style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                                      onClick={(e) => { e.stopPropagation(); handleOpenInvoiceDetails(saleId); }}
+                                    >
+                                      عرض
+                                    </button>
+                                    <button
+                                      className="btn btn-sm btn-secondary"
+                                      style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                                      onClick={(e) => { e.stopPropagation(); handleReprintSale(saleId); }}
+                                    >
+                                      طباعة
+                                    </button>
+                                  </div>
                                 ) : '-'}
                               </td>
                             </tr>
@@ -337,7 +346,7 @@ export default function ClientsTab({
                             title="اضغط لعرض تفاصيل الفاتورة"
                           >
                             <td style={{ color: 'var(--accent-blue)' }}>فاتورة #{((p.id - 1) % 10000) + 1}</td>
-                            <td style={{ fontWeight: 'bold' }}>{p.total_amount.toFixed(2)} ج.م</td>
+                            <td style={{ fontWeight: 'bold' }}>{(p.total_amount || 0).toFixed(2)} ج.م</td>
                             <td>شراء ({p.payment_type}) - عدد {p.items_count} أصناف</td>
                             <td>{p.timestamp}</td>
                             <td style={{ textAlign: 'center' }}>
@@ -489,7 +498,7 @@ export default function ClientsTab({
                       fontWeight: 'bold', 
                       color: c.debt_balance > 0 ? 'var(--accent-rose)' : 'var(--text-secondary)'
                     }}>
-                      {c.debt_balance.toFixed(2)} ج.م
+                      {(c.debt_balance || 0).toFixed(2)} ج.م
                     </td>
                     <td style={{ fontWeight: 'bold', color: 'var(--accent-amber)' }}>⭐️ {c.points}</td>
                     <td style={{ display: 'flex', gap: '6px', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
@@ -577,8 +586,8 @@ export default function ClientsTab({
                     <tr key={idx}>
                       <td style={{ fontWeight: 'bold' }}>{item.name || `باركود ${item.product_barcode}`}</td>
                       <td>{item.quantity}</td>
-                      <td>{item.unit_price.toFixed(2)} ج.م</td>
-                      <td style={{ fontWeight: 'bold' }}>{item.total_price.toFixed(2)} ج.م</td>
+                      <td>{(item.unit_price || 0).toFixed(2)} ج.م</td>
+                      <td style={{ fontWeight: 'bold' }}>{(item.total_price || 0).toFixed(2)} ج.م</td>
                     </tr>
                   ))}
                 </tbody>
@@ -586,9 +595,9 @@ export default function ClientsTab({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '10px', gap: '5px', fontSize: '0.9rem' }}>
-              <div><strong>الخصم:</strong> {activeInvoice.discount.toFixed(2)} ج.م</div>
+              <div><strong>الخصم:</strong> {(activeInvoice.discount || 0).toFixed(2)} ج.م</div>
               <div style={{ fontSize: '1.1rem', color: 'var(--accent-emerald)', fontWeight: 'bold' }}>
-                <strong>الإجمالي الصافي:</strong> {activeInvoice.total_amount.toFixed(2)} ج.م
+                <strong>الإجمالي الصافي:</strong> {(activeInvoice.total_amount || 0).toFixed(2)} ج.م
               </div>
             </div>
 

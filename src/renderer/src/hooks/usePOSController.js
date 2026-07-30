@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { escapeSql, normalizeDigits, playSound } from '../lib/utils'
+import { useState, useRef } from 'react'
+import { escapeSql, normalizeDigits, playSound, getNowStr, getFriendlyErrorMessage} from '../lib/utils'
 import { executeQuery } from '../lib/db'
 import { generateReceiptHtml, generateReprintHtml } from '../lib/printTemplates'
+import { logEvent } from '../lib/dao/logs.dao'
 
 /**
  * Custom hook to encapsulate the POS checkout/terminal workflow control logic,
@@ -46,6 +47,7 @@ export function usePOSController({
   isDelivery,
   setIsDelivery,
   cartTotal,
+  cartSubtotal,
   addToCart,
   triggerClearCart,
   updateQty,
@@ -54,7 +56,12 @@ export function usePOSController({
   searchInputRef,
   qtyInputRefs,
 
+  depositChange,
+  setDepositChange,
+  appliedCredit,
+  setAppliedCredit,
   printSilent,
+  noPrint,
   setToastMessage,
   fetchStats,
   fetchClientsList,
@@ -66,6 +73,7 @@ export function usePOSController({
   setCurrentView
 }) {
   const [pin, setPin] = useState('')
+  const searchDebounceRef = useRef(null)
   const [barcodeInput, setBarcodeInput] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -92,28 +100,21 @@ export function usePOSController({
   }
 
   // Pin Authenticator
-  const handlePinSubmit = async (e) => {
-    if (e) e.preventDefault()
-    console.log(`[AUTH FLOW] handlePinSubmit triggered. Raw PIN state: "${pin}"`)
-    if (!pin) {
-      console.warn('[AUTH FLOW] PIN is empty, aborting.')
-      return
+  const handlePinSubmit = async (customPin = null) => {
+    if (customPin && typeof customPin.preventDefault === 'function') {
+      customPin.preventDefault()
+      customPin = null
     }
-
+    const cleanPin = normalizeDigits(customPin !== null ? customPin : pin)
     try {
-      const cleanPin = normalizeDigits(pin).replace(/\D/g, '')
-      console.log(`[AUTH FLOW] Cleaned PIN: "${cleanPin}"`)
       if (!cleanPin) {
-        console.warn('[AUTH FLOW] Cleaned PIN is empty, aborting.')
         return
       }
       const escapedPin = escapeSql(cleanPin)
-      const users = await executeQuery(`SELECT * FROM users WHERE password_hash = '${escapedPin}' LIMIT 1;`)
-      
-      console.log(`[AUTH FLOW] Query completed. Matching users found: ${users.length}`)
+      let users = await executeQuery(`SELECT * FROM users WHERE password_hash = '${escapedPin}' LIMIT 1;`)
+
       if (users.length > 0) {
         const user = users[0]
-        console.log(`[AUTH FLOW] User authenticated: ${JSON.stringify(user)}`)
         setCurrentUser(user)
         setPin('')
 
@@ -135,16 +136,10 @@ export function usePOSController({
           if (user.role === 'cashier') {
             console.log('[AUTH FLOW] Cashier logging in without shift. Prompting to open shift with prefilled handoff cash.')
             try {
-              const lastClosed = await executeQuery(`
-                SELECT actual_end_cash FROM shifts WHERE status = 'closed' ORDER BY id DESC LIMIT 1;
-              `)
-              if (lastClosed && lastClosed.length > 0 && lastClosed[0].actual_end_cash !== null && lastClosed[0].actual_end_cash !== undefined) {
-                setStartingCash((lastClosed[0].actual_end_cash || 0).toString())
-              } else {
-                setStartingCash('0')
-              }
+              // نظام التوريد الجديد: العهدة دايمًا 200 ج.م
+              setStartingCash('200')
             } catch (e) {
-              setStartingCash('0')
+              setStartingCash('200')
             }
             setOpenShiftModal(true)
           } else {
@@ -160,7 +155,7 @@ export function usePOSController({
       }
     } catch (err) {
       console.error('[AUTH FLOW] Critical exception caught during login:', err)
-      triggerCustomAlert('خطأ في قاعدة البيانات: ' + err.message)
+      triggerCustomAlert('خطأ في قاعدة البيانات: ' + getFriendlyErrorMessage(err))
       playSound('error')
     }
   }
@@ -171,7 +166,7 @@ export function usePOSController({
     if (startingCashNum < 0) return
 
     try {
-      const nowStr = new Date().toLocaleString('ar-EG')
+      const nowStr = getNowStr()
       await executeQuery(`
         INSERT INTO shifts (user_id, start_time, initial_cash, expected_end_cash, actual_end_cash, status)
         VALUES (${currentUser.id}, '${nowStr}', ${startingCashNum}, ${startingCashNum}, 0, 'open');
@@ -182,6 +177,12 @@ export function usePOSController({
       `)
 
       if (latestShift.length > 0) {
+        await logEvent({
+          userId: currentUser.id,
+          username: currentUser.username,
+          actionType: 'shift_open',
+          description: `فتح وردية جديدة بمبلغ بداية ${startingCashNum.toFixed(2)} ج.م`
+        })
         setCurrentShift(latestShift[0])
         setOpenShiftModal(false)
         setIsLocked(false)
@@ -202,28 +203,19 @@ export function usePOSController({
     }
 
     try {
-      const salesRes = await executeQuery(`
-        SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0), total_amount)), 0) as total 
-        FROM sales 
-        WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي';
-      `)
-      const repayRes = await executeQuery(`
-        SELECT IFNULL(SUM(amount), 0) as total
-        FROM safe_ledger
-        WHERE shift_id = ${currentShift.id} AND type = 'inflow';
-      `)
-      const refundRes = await executeQuery(`
-        SELECT IFNULL(SUM(amount), 0) as total
-        FROM safe_ledger
-        WHERE shift_id = ${currentShift.id} AND type = 'outflow';
+      const combinedRes = await executeQuery(`
+        SELECT 
+          (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0), total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي') as salesTotal,
+          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'inflow') as repayTotal,
+          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow') as refundTotal;
       `)
 
-      const salesTotal   = parseFloat(salesRes[0]?.total)  || 0
-      const repayTotal   = parseFloat(repayRes[0]?.total)  || 0
-      const refundTotal  = parseFloat(refundRes[0]?.total) || 0
+      const salesTotal   = parseFloat(combinedRes[0]?.salesTotal)  || 0
+      const repayTotal   = parseFloat(combinedRes[0]?.repayTotal)  || 0
+      const refundTotal  = parseFloat(combinedRes[0]?.refundTotal) || 0
       const expected = currentShift.initial_cash + salesTotal + repayTotal - refundTotal
       const difference = actual - expected
-      const nowStr = new Date().toLocaleString('ar-EG')
+      const nowStr = getNowStr()
 
       const finalizeShiftClose = async () => {
         try {
@@ -232,6 +224,12 @@ export function usePOSController({
             SET end_time = '${nowStr}', expected_end_cash = ${expected}, actual_end_cash = ${actual}, difference = ${difference}, status = 'closed'
             WHERE id = ${currentShift.id};
           `)
+          await logEvent({
+            userId: currentUser?.id,
+            username: currentUser?.username,
+            actionType: 'shift_close',
+            description: `إغلاق الوردية رقم #${currentShift.id} (الفعلي: ${actual.toFixed(2)} ج.م، المتوقع: ${expected.toFixed(2)} ج.م، الفرق: ${difference.toFixed(2)} ج.م)`
+          })
           playSound('chime')
           handleLock()
           setCloseShiftModal(false)
@@ -248,6 +246,12 @@ export function usePOSController({
           if (window.api && window.api.db && window.api.db.backup) {
             const backupRes = await window.api.db.backup()
             if (backupRes && backupRes.success) {
+              await logEvent({
+                userId: currentUser?.id,
+                username: currentUser?.username,
+                actionType: 'database_backup',
+                description: `أخذ نسخة احتياطية من قاعدة البيانات بنجاح في: ${backupRes.filePath}`
+              })
               triggerCustomAlert(`تم حفظ النسخة الاحتياطية بنجاح في:\n${backupRes.filePath}`, 'نجاح النسخ الاحتياطي', async () => {
                 await finalizeShiftClose()
               })
@@ -313,9 +317,9 @@ export function usePOSController({
         if (candidates.length === 1) {
           product = candidates[0]
         } else if (candidates.length > 1) {
-          product = candidates.reduce((best, c) =>
-            c.barcode.length < best.barcode.length ? c : best
-          , candidates[0])
+          setSearchResults(candidates)
+          setBarcodeInput('')
+          return
         }
       }
 
@@ -345,9 +349,9 @@ export function usePOSController({
 
     try {
       const escapedPin = escapeSql(managerPin)
-      const managers = await executeQuery(`
-        SELECT * FROM users 
-        WHERE password_hash = '${escapedPin}' AND role = 'admin' 
+      let managers = await executeQuery(`
+        SELECT * FROM users
+        WHERE password_hash = '${escapedPin}' AND role = 'admin'
         LIMIT 1;
       `)
 
@@ -376,30 +380,45 @@ export function usePOSController({
   }
 
   // Instant catalog search
-  const handleSearchChange = async (e) => {
+  const handleSearchChange = (e) => {
     const val = e.target.value
     setSearchInput(val)
     setSelectedSearchIndex(-1)
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
 
     if (!val.trim()) {
       setSearchResults([])
       return
     }
 
-    try {
-      const escaped = escapeSql(val)
-      const results = await executeQuery(`
-        SELECT * FROM products 
-        WHERE name LIKE '%${escaped}%' OR barcode LIKE '%${escaped}%'
-        LIMIT 8;
-      `)
-      setSearchResults(results)
-    } catch (err) {
-      console.error('Search query error:', err)
-    }
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const escaped = escapeSql(val)
+        const results = await executeQuery(`
+          SELECT * FROM products 
+          WHERE name LIKE '%${escaped}%' OR barcode LIKE '%${escaped}%'
+          LIMIT 8;
+        `)
+        setSearchResults(results)
+      } catch (err) {
+        console.error('Search query error:', err)
+      }
+    }, 150)
   }
 
   const handleSearchKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setSearchInput('')
+      setSearchResults([])
+      setSelectedSearchIndex(-1)
+      barcodeInputRef.current?.focus()
+      return
+    }
+
     if (searchResults.length === 0) return
 
     if (e.key === 'ArrowDown') {
@@ -438,7 +457,7 @@ export function usePOSController({
     }
 
     try {
-      const nowStr = new Date().toLocaleString('ar-EG')
+      const nowStr = getNowStr()
       const finalDiscount = parseFloat(discount) || 0
 
       let clientId = null
@@ -453,9 +472,10 @@ export function usePOSController({
           if (existing && existing.length > 0) {
             clientId = existing[0].id
           } else {
+            const phoneForInsert = clientPhone && clientPhone.trim() ? `'${escapeSql(clientPhone.trim())}'` : 'NULL'
             await executeQuery(`
               INSERT INTO clients (name, phone, address, debt_balance, points, created_at)
-              VALUES ('${escapeSql(clientName)}', '${escapeSql(clientPhone)}', '${escapeSql(clientAddress)}', 0.0, 0, '${nowStr}');
+              VALUES ('${escapeSql(clientName)}', ${phoneForInsert}, '${escapeSql(clientAddress)}', 0.0, 0, '${nowStr}');
             `)
             const newClientRes = await executeQuery(`SELECT MAX(id) as id FROM clients;`)
             clientId = newClientRes?.[0]?.id || null
@@ -472,7 +492,7 @@ export function usePOSController({
       }
 
       let sqlQuery = 'BEGIN TRANSACTION;\n'
-      sqlQuery += `INSERT INTO sales (shift_id, timestamp, total_amount, original_amount, discount, payment_type, client_name, client_id) VALUES (${currentShift.id}, '${nowStr}', ${cartTotal}, ${cartTotal}, ${finalDiscount}, '${paymentType}', '${escapeSql(clientDbValue)}', ${clientId || 'NULL'});\n`
+      sqlQuery += `INSERT INTO sales (shift_id, timestamp, total_amount, original_amount, discount, payment_type, client_name, client_id) VALUES (${currentShift.id}, '${nowStr}', ${cartTotal}, ${cartSubtotal || cartTotal}, ${finalDiscount}, '${paymentType}', '${escapeSql(clientDbValue)}', ${clientId || 'NULL'});\n`
       
       cart.forEach((item) => {
         sqlQuery += `INSERT INTO sale_items (sale_id, product_barcode, quantity, unit_price, total_price, cost_price) VALUES ((SELECT MAX(id) FROM sales), '${escapeSql(item.barcode)}', ${item.qty}, ${item.price}, ${item.total}, ${item.cost_price || 0.0});\n`
@@ -485,10 +505,31 @@ export function usePOSController({
           sqlQuery += `UPDATE clients SET debt_balance = debt_balance + ${cartTotal} WHERE id = ${clientId};\n`
           sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'sale', ${cartTotal}, 'شراء آجل فاتورة رقم #' || (SELECT MAX(id) FROM sales), '${nowStr}');\n`
         }
+        
+        // استهلاك الرصيد كخصم (إذا تم استخدامه)
+        if (parseFloat(appliedCredit) > 0) {
+          sqlQuery += `UPDATE clients SET debt_balance = debt_balance + ${parseFloat(appliedCredit)} WHERE id = ${clientId};\n`
+          sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'sale', ${parseFloat(appliedCredit)}, 'استهلاك رصيد كخصم في فاتورة رقم #' || (SELECT MAX(id) FROM sales), '${nowStr}');\n`
+        }
+
+        // حفظ الباقي في رصيد العميل (إذا تم تحديده والـ paidAmount أكبر من الصافي)
+        const changeVal = paidAmount ? Math.max(0, (parseFloat(paidAmount) || 0) - cartTotal) : 0
+        const depositVal = Math.min(parseFloat(depositChange) || 0, changeVal)
+        if (depositVal > 0) {
+          sqlQuery += `UPDATE clients SET debt_balance = debt_balance - ${depositVal} WHERE id = ${clientId};\n`
+          sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'payment', ${depositVal}, 'حفظ الباقي نقدي رصيد في فاتورة رقم #' || (SELECT MAX(id) FROM sales), '${nowStr}');\n`
+        }
       }
 
       sqlQuery += 'COMMIT;\n'
       await executeQuery(sqlQuery)
+
+      await logEvent({
+        userId: currentUser?.id,
+        username: currentUser?.username,
+        actionType: 'checkout_sale',
+        description: `إتمام عملية بيع فاتورة بقيمة ${cartTotal.toFixed(2)} ج.م (طريقة الدفع: ${paymentType})`
+      })
 
       const saleResult = await executeQuery(`SELECT id FROM sales ORDER BY id DESC LIMIT 1;`)
       const rawSaleId = (saleResult && saleResult.length > 0 && saleResult[0]) ? (saleResult[0].id || 0) : 0
@@ -514,13 +555,13 @@ export function usePOSController({
         changeRemaining: paidAmount ? Math.max(0, (parseFloat(paidAmount) || 0) - cartTotal) : 0
       })
 
-      if (window.api && window.api.printer && window.api.printer.print) {
+      if (!noPrint && window.api && window.api.printer && window.api.printer.print) {
         console.log('[PRINT FLOW] Invoking printer.print with HTML content length:', receiptHtml.length, 'mode silent:', printSilent)
         window.api.printer.print(receiptHtml, { silent: printSilent })
           .then(() => console.log('[PRINT FLOW] Receipt printed successfully on Citizen CT-S300.'))
           .catch((e) => {
             console.error('[PRINT FLOW] Printing failed:', e)
-            triggerCustomAlert(`تنبيه: فشلت عملية الطباعة المباشرة!\nالسبب: ${e.message}\nيرجى التحقق من اتصال الطابعة والتعريف.`)
+            triggerCustomAlert(`تنبيه: فشلت عملية الطباعة المباشرة!\nالسبب: ${getFriendlyErrorMessage(e)}\nيرجى التحقق من اتصال الطابعة والتعريف.`)
           })
       }
 
@@ -528,6 +569,8 @@ export function usePOSController({
       setTimeout(() => setToastMessage(null), 3000)
       setCart([])
       setDiscount(0)
+      setAppliedCredit(0)
+      setDepositChange('')
       setPaidAmount('')
       setClientName('')
       setClientPhone('')
@@ -546,7 +589,14 @@ export function usePOSController({
     } catch (e) {
       console.error('Checkout failed:', e)
       playSound('error')
-      triggerCustomAlert('فشلت المعاملة، يرجى المحاولة مرة أخرى.')
+      const msg = e.message || ''
+      if (msg.includes('نفاد الكمية') || msg.includes('stock')) {
+        triggerCustomAlert('فشل البيع: رصيد المخزون لا يكفي لأحد الأصناف في السلة.\nيرجى مراجعة الكميات المطلوبة أو تحديث المخزون.')
+      } else if (msg.includes('وردية مغلقة') || msg.includes('closed')) {
+        triggerCustomAlert('فشل البيع: الوردية مغلقة. يرجى فتح وردية جديدة.')
+      } else {
+        triggerCustomAlert('فشلت المعاملة، يرجى المحاولة مرة أخرى.')
+      }
     }
   }
 
@@ -607,15 +657,15 @@ export function usePOSController({
         items
       })
 
-      if (window.api && window.api.printer && window.api.printer.print) {
+      if (!noPrint && window.api && window.api.printer && window.api.printer.print) {
         window.api.printer.print(receiptHtml, { silent: printSilent })
           .then(() => console.log('Historical receipt printed successfully.'))
-          .catch((e) => triggerCustomAlert(`فشلت الطباعة: ${e.message}`))
+          .catch((e) => triggerCustomAlert(`فشلت الطباعة: ${getFriendlyErrorMessage(e)}`))
       } else {
         console.log(receiptHtml)
       }
     } catch (e) {
-      triggerCustomAlert('حدث خطأ أثناء محاولة إعادة طباعة الفاتورة: ' + e.message)
+      triggerCustomAlert('حدث خطأ أثناء محاولة إعادة طباعة الفاتورة: ' + getFriendlyErrorMessage(e))
     }
   }
 

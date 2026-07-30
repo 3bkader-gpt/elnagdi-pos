@@ -11,6 +11,8 @@ files:
 extraResources:
   - from: "./sqlite3.exe"
     to: "sqlite3.exe"
+  - from: "./typst.exe"
+    to: "typst.exe"
   - from: "./market_unified.db"
     to: "market_unified.db"
   - from: "resources/print_receipt.ps1"
@@ -20,6 +22,9 @@ asarUnpack:
 win:
   executableName: elnagdi-pos
 nsis:
+  oneClick: true
+  perMachine: false
+  deleteAppDataOnUninstall: false
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: "برنامج مبيعات النجدي"
   uninstallDisplayName: "برنامج مبيعات النجدي"

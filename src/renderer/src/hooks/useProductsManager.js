@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { executeQuery } from '../lib/db'
-import { escapeSql } from '../lib/utils'
+import { escapeSql, getFriendlyErrorMessage} from '../lib/utils'
 
 export function useProductsManager({ fetchAdminData, setToastMessage, triggerCustomAlert, triggerCustomConfirm }) {
   const [adminProducts, setAdminProducts] = useState([])
@@ -9,18 +9,22 @@ export function useProductsManager({ fetchAdminData, setToastMessage, triggerCus
   const [adminSearch, setAdminSearch] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
-  const [newProduct, setNewProduct] = useState({ barcode: '', name: '', cost_price: '', retail_price: '', wholesale_price: '', stock_qty: '', reorder_limit: '', unit: 'علبة' })
-  const [editProduct, setEditProduct] = useState({ barcode: '', name: '', cost_price: '', retail_price: '', wholesale_price: '', stock_qty: '', reorder_limit: '', unit: 'علبة' })
+  const [newProduct, setNewProduct] = useState({ barcode: '', name: '', cost_price: '', retail_price: '', wholesale_price: '', stock_qty: '', reorder_limit: '', unit: '' })
+  const [editProduct, setEditProduct] = useState({ barcode: '', name: '', cost_price: '', retail_price: '', wholesale_price: '', stock_qty: '', reorder_limit: '', unit: '' })
   const [productsSortField, setProductsSortField] = useState('name')
   const [productsSortAsc, setProductsSortAsc] = useState(true)
   const itemsPerPage = 12
 
   const fetchInventoryPage = async (page = 1, search = '', sortField = null, sortAsc = null) => {
     try {
-      const activeSortField = sortField !== null ? sortField : productsSortField
+      const activeSortFieldRaw = sortField !== null ? sortField : productsSortField
       const activeSortAsc = sortAsc !== null ? sortAsc : productsSortAsc
-      if (sortField !== null) setProductsSortField(sortField)
-      if (sortAsc !== null) setProductsSortAsc(sortAsc)
+      
+      const allowedFields = ['name', 'barcode', 'stock_qty', 'retail_price', 'cost_price', 'reorder_limit']
+      const activeSortField = allowedFields.includes(activeSortFieldRaw) ? activeSortFieldRaw : 'name'
+
+      if (sortField !== null) setProductsSortField(activeSortField)
+      if (sortAsc !== null) setProductsSortAsc(activeSortAsc)
 
       const offset = (page - 1) * itemsPerPage
       const escapedSearch = escapeSql(search)
@@ -59,14 +63,14 @@ export function useProductsManager({ fetchAdminData, setToastMessage, triggerCus
       try {
         await executeQuery(`
           INSERT INTO products (barcode, name, cost_price, retail_price, wholesale_price, stock_qty, reorder_limit, unit)
-          VALUES ('${escapeSql(barcode)}', '${escapeSql(name)}', ${cost}, ${retail}, ${parseFloat(wholesale_price) || 0}, ${parseFloat(stock_qty) || 0}, ${parseFloat(reorder_limit) || 0}, '${escapeSql(unit) || 'علبة'}');
+          VALUES ('${escapeSql(barcode)}', '${escapeSql(name)}', ${cost}, ${retail}, ${parseFloat(wholesale_price) || 0}, ${parseFloat(stock_qty) || 0}, ${parseFloat(reorder_limit) || 0}, '${escapeSql(unit) || ''}');
         `)
         triggerCustomAlert('تمت إضافة المنتج بنجاح!')
         setShowAddModal(false)
-        setNewProduct({ barcode: '', name: '', cost_price: '', retail_price: '', wholesale_price: '', stock_qty: '', reorder_limit: '', unit: 'علبة' })
+        setNewProduct({ barcode: '', name: '', cost_price: '', retail_price: '', wholesale_price: '', stock_qty: '', reorder_limit: '', unit: '' })
         if (fetchAdminData) await fetchAdminData()
       } catch (err) {
-        triggerCustomAlert('فشل إضافة المنتج. ربما الباركود مكرر: ' + err.message)
+        triggerCustomAlert('فشل إضافة المنتج. ربما الباركود مكرر: ' + getFriendlyErrorMessage(err))
       }
     }
 
@@ -100,7 +104,7 @@ export function useProductsManager({ fetchAdminData, setToastMessage, triggerCus
               wholesale_price = ${parseFloat(wholesale_price) || 0}, 
               stock_qty = ${parseFloat(stock_qty) || 0}, 
               reorder_limit = ${parseFloat(reorder_limit) || 0}, 
-              unit = '${escapeSql(unit) || 'علبة'}'
+              unit = '${escapeSql(unit) || ''}'
           WHERE barcode = '${escapeSql(barcode)}';
         `)
         if (setToastMessage) {
@@ -110,7 +114,7 @@ export function useProductsManager({ fetchAdminData, setToastMessage, triggerCus
         setShowEditModal(false)
         if (fetchAdminData) await fetchAdminData()
       } catch (err) {
-        triggerCustomAlert('فشل التحديث: ' + err.message)
+        triggerCustomAlert('فشل التحديث: ' + getFriendlyErrorMessage(err))
       }
     }
 
@@ -134,7 +138,7 @@ export function useProductsManager({ fetchAdminData, setToastMessage, triggerCus
         if (err.message && err.message.includes('FOREIGN KEY')) {
           triggerCustomAlert('لا يمكن حذف هذا المنتج لأنه مرتبط بمبيعات أو فواتير سابقة في الداتا بيس.\nيمكنك بدلاً من حذفه تعديل كميته المتاحة إلى صفر.')
         } else {
-          triggerCustomAlert('فشل الحذف: ' + err.message)
+          triggerCustomAlert('فشل الحذف: ' + getFriendlyErrorMessage(err))
         }
       }
     })

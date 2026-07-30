@@ -13,6 +13,9 @@ import BestSellersTab from './BestSellersTab'
 import BackupTab from './BackupTab'
 import ReorderingTab from './ReorderingTab'
 import DamagedGoodsTab from './DamagedGoodsTab'
+import AdvancedStatsTab from './AdvancedStatsTab'
+import CashierPerformanceTab from './CashierPerformanceTab'
+import LogsTab from './LogsTab'
 
 export default function AdminDashboard({
   currentUser,
@@ -60,6 +63,8 @@ export default function AdminDashboard({
   fetchSalesHistory,
   salesSortField,
   salesSortAsc,
+  salesPage,
+  salesTotalCount,
 
   // SuppliersTab props
   setNewSupplierForm,
@@ -301,6 +306,36 @@ export default function AdminDashboard({
       action: () => {
         setAdminTab('backup')
       }
+    },
+    {
+      id: 'advanced-stats',
+      title: 'التقارير والتحليلات المتقدمة',
+      desc: 'تقارير مفصلة بفترة مخصصة: ذروة المبيعات، أداء الورديات، أفضل المنتجات، وملخص ذكي.',
+      icon: '📈',
+      color: 'linear-gradient(135deg, #7c3aed, #4c1d95)',
+      action: () => {
+        setAdminTab('advanced-stats')
+      }
+    },
+    {
+      id: 'cashier-performance',
+      title: 'تقييم أداء الكاشيرات',
+      desc: 'لوحة ترتيب وتقييم شاملة لكل كاشير: درجة أداء، مقارنة بصرية، ملف تفصيلي، وتنبيهات ذكية.',
+      icon: '⭐',
+      color: 'linear-gradient(135deg, #f59e0b, #b45309)',
+      action: () => {
+        setAdminTab('cashier-performance')
+      }
+    },
+    {
+      id: 'logs',
+      title: 'سجل العمليات (Event Log)',
+      desc: 'عرض ومتابعة كافة العمليات الإدارية وأنشطة الكاشيرات والورديات والنسخ الاحتياطي بالتوقيت.',
+      icon: '📋',
+      color: 'linear-gradient(135deg, #4f46e5, #3730a3)',
+      action: () => {
+        setAdminTab('logs')
+      }
     }
   ]
 
@@ -329,6 +364,9 @@ export default function AdminDashboard({
               {adminTab === 'users' && '👥 إدارة الكاشيرات'}
               {adminTab === 'reordering' && '🤖 مساعد الطلبيات الذكي'}
               {adminTab === 'backup' && '💾 النسخ الاحتياطي والأمان'}
+              {adminTab === 'advanced-stats' && '📈 التقارير والتحليلات المتقدمة'}
+              {adminTab === 'cashier-performance' && '⭐ تقييم أداء الكاشيرات'}
+              {adminTab === 'logs' && '📋 سجل العمليات والأنشطة (Event Log)'}
             </h2>
           </div>
         )}
@@ -396,6 +434,10 @@ export default function AdminDashboard({
           fetchSalesHistory={fetchSalesHistory}
           salesSortField={salesSortField}
           salesSortAsc={salesSortAsc}
+          salesPage={salesPage}
+          salesTotalCount={salesTotalCount}
+          itemsPerPage={itemsPerPage}
+          handleReprintSale={handleReprintSale}
         />
       )}
 
@@ -509,6 +551,14 @@ export default function AdminDashboard({
         <ReorderingTab />
       )}
 
+      {adminTab === 'advanced-stats' && (
+        <AdvancedStatsTab />
+      )}
+
+      {adminTab === 'cashier-performance' && (
+        <CashierPerformanceTab />
+      )}
+
       {adminTab === 'damaged' && (
         <DamagedGoodsTab
           damagedGoodsList={damagedGoodsList}
@@ -520,6 +570,10 @@ export default function AdminDashboard({
           handleAddDamaged={handleAddDamaged}
           handleDeleteDamaged={handleDeleteDamaged}
         />
+      )}
+
+      {adminTab === 'logs' && (
+        <LogsTab />
       )}
     </div>
   )

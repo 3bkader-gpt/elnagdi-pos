@@ -14,14 +14,17 @@ import { executeSql } from './db'
 
 const W = 48
 
+const displayLen = (s) => s.replace(/[​-‏‪-‮﻿]/g, '').length
+
 const center = (s) => {
   const str = String(s).trim()
-  const pad = Math.max(0, Math.floor((W - str.length) / 2))
-  return ' '.repeat(pad) + str
+  const totalPad = Math.max(0, W - displayLen(str))
+  const left = Math.floor(totalPad / 2)
+  return ' '.repeat(left) + str
 }
 const lrPad = (l, r) => {
   const left = String(l || ''), right = String(r || '')
-  return left + ' '.repeat(Math.max(1, W - left.length - right.length)) + right
+  return left + ' '.repeat(Math.max(1, W - displayLen(left) - displayLen(right))) + right
 }
 const divider = (c = '-') => c.repeat(W)
 
@@ -57,10 +60,6 @@ function buildReceiptText(html, storeName = 'سوبر ماركت النجدي', 
   const phone   = get(html, /هاتف العميل:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
   const address = get(html, /العنوان:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
 
-  console.log('[PRINTER DEBUG] Parsed saleId:', saleId)
-  console.log('[PRINTER DEBUG] Parsed date:', date)
-  console.log('[PRINTER DEBUG] Parsed time:', time)
-  console.log('[PRINTER DEBUG] Parsed cashier:', cashier)
   const total   = get(html, /الإجمالي:<\/span>\s*<span>([^<]+)/)
   const disc    = get(html, /خصم الفاتورة:<\/span>\s*<span>([^<]+)/)
   const paid    = get(html, /المدفوع:<\/span>\s*<span>([^<]+)/)

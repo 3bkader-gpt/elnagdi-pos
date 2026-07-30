@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { executeQuery } from '../lib/db'
-import { parseLocaleDateString } from '../lib/utils'
+import { parseLocaleDateString, getNowStr } from '../lib/utils'
 
 /**
  * Hook to manage product best-sellers analytics.
@@ -23,16 +23,8 @@ export function useBestSellersManager() {
       sinceDate.setDate(sinceDate.getDate() - days)
       sinceDate.setHours(0, 0, 0, 0) // start of the target day
 
-      // 1. Fetch all shifts to filter them in JavaScript
-      const shifts = await executeQuery('SELECT id, start_time FROM shifts;')
-      
-      // 2. Filter matching shifts using parseLocaleDateString
-      const matchingShifts = shifts.filter((sh) => {
-        if (!sh.start_time) return false
-        const parsed = parseLocaleDateString(sh.start_time)
-        return parsed >= sinceDate
-      })
-      
+      const sinceStr = getNowStr(sinceDate)
+      const matchingShifts = await executeQuery(`SELECT id FROM shifts WHERE start_time >= '${sinceStr}';`)
       const matchingShiftIds = matchingShifts.map((sh) => sh.id)
 
       if (matchingShiftIds.length === 0) {

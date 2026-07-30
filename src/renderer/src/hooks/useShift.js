@@ -11,7 +11,7 @@ export function useShift() {
 
   // Shift Modals
   const [openShiftModal, setOpenShiftModal] = useState(false)
-  const [startingCash, setStartingCash] = useState('100')
+  const [startingCash, setStartingCash] = useState('0')
   const [closeShiftModal, setCloseShiftModal] = useState(false)
   const [actualEndCash, setActualEndCash] = useState('')
 

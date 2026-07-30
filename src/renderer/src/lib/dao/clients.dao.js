@@ -1,5 +1,5 @@
 import { executeQuery } from '../db'
-import { escapeSql } from '../utils'
+import { escapeSql, getNowStr } from '../utils'
 
 /**
  * Get clients list, optionally filtered by search input (name or phone).
@@ -127,10 +127,11 @@ export async function checkDuplicatePhone(phone, excludeId = null) {
  * @returns {Promise<void>}
  */
 export async function addClient({ name, phone, address }) {
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
+  const phoneVal = phone && phone.trim() ? `'${escapeSql(phone.trim())}'` : 'NULL'
   await executeQuery(`
     INSERT INTO clients (name, phone, address, debt_balance, points, created_at)
-    VALUES ('${escapeSql(name)}', '${escapeSql(phone)}', '${escapeSql(address)}', 0.0, 0, '${nowStr}');
+    VALUES ('${escapeSql(name)}', ${phoneVal}, '${escapeSql(address)}', 0.0, 0, '${nowStr}');
   `)
 }
 
@@ -141,10 +142,11 @@ export async function addClient({ name, phone, address }) {
  * @returns {Promise<void>}
  */
 export async function updateClient({ id, name, phone, address }) {
+  const phoneVal = phone && phone.trim() ? `'${escapeSql(phone.trim())}'` : 'NULL'
   await executeQuery(`
     UPDATE clients 
     SET name = '${escapeSql(name)}', 
-        phone = '${escapeSql(phone)}', 
+        phone = ${phoneVal}, 
         address = '${escapeSql(address)}'
     WHERE id = ${id};
   `)
@@ -173,7 +175,7 @@ export async function deleteClient(clientId) {
  * @returns {Promise<void>}
  */
 export async function recordClientRepayment({ clientId, clientName, amount, shiftId }) {
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
   const cleanShiftId = shiftId && shiftId !== 'NULL' ? shiftId : 'NULL'
   
   let sql = 'BEGIN TRANSACTION;\n'

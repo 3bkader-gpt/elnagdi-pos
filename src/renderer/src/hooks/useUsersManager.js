@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { executeQuery } from '../lib/db'
-import { escapeSql } from '../lib/utils'
+import { escapeSql, getFriendlyErrorMessage} from '../lib/utils'
+import { logEvent } from '../lib/dao/logs.dao'
 
 export function useUsersManager({ currentUser, fetchStats, fetchAdminData, triggerCustomAlert, triggerCustomConfirm }) {
   const [usersList, setUsersList] = useState([])
@@ -26,13 +27,19 @@ export function useUsersManager({ currentUser, fetchStats, fetchAdminData, trigg
     triggerCustomConfirm(`هل أنت متأكد من حذف حساب الكاشير "${u.username}" نهائياً؟`, async () => {
       try {
         await executeQuery(`DELETE FROM users WHERE id = ${u.id};`)
+        await logEvent({
+          userId: currentUser?.id,
+          username: currentUser?.username,
+          actionType: 'user_delete',
+          description: `حذف المستخدم "${u.username}" (رتبة: ${u.role})`
+        })
         triggerCustomAlert('تم حذف الحساب بنجاح!')
         await fetchUsersList()
       } catch (err) {
         if (err.message && err.message.includes('FOREIGN KEY')) {
           triggerCustomAlert('لا يمكن حذف هذا المستخدم لأنه قام بفتح ورديات أو تسجيل حركات سابقة بالنظام.')
         } else {
-          triggerCustomAlert('فشل حذف الحساب: ' + err.message)
+          triggerCustomAlert('فشل حذف الحساب: ' + getFriendlyErrorMessage(err))
         }
       }
     })
@@ -60,11 +67,17 @@ DELETE FROM checks_register;
 DELETE FROM sqlite_sequence WHERE name IN ('sale_items','sales','shifts','safe_ledger','client_ledger','clients','supplier_ledger','supplier_purchases','suppliers','checks_register');
 UPDATE products SET stock_qty = 0 WHERE stock_qty < 0;
 COMMIT;`)
+              await logEvent({
+                userId: currentUser?.id,
+                username: currentUser?.username,
+                actionType: 'system_reset',
+                description: 'إعادة تهيئة كاملة لبيانات النظام والبدء من الصفر'
+              })
               triggerCustomAlert('تم إعادة الضبط بنجاح! النظام جاهز للبدء الفعلي.')
               if (fetchStats) await fetchStats()
               if (fetchAdminData) await fetchAdminData()
             } catch (err) {
-              triggerCustomAlert('فشلت عملية إعادة الضبط: ' + err.message)
+              triggerCustomAlert('فشلت عملية إعادة الضبط: ' + getFriendlyErrorMessage(err))
             }
           }
         )
@@ -99,45 +112,65 @@ COMMIT;`)
         INSERT INTO users (username, password_hash, role)
         VALUES ('${escapeSql(username)}', '${escapeSql(pin)}', '${escapeSql(role)}');
       `)
+      await logEvent({
+        userId: currentUser?.id,
+        username: currentUser?.username,
+        actionType: 'user_create',
+        description: `إنشاء مستخدم جديد "${username}" برتبة ${role}`
+      })
       triggerCustomAlert('تم إضافة حساب الموظف الجديد بنجاح!')
       setShowAddUserModal(false)
       setNewUser({ username: '', pin: '', role: 'cashier' })
       await fetchUsersList()
     } catch (err) {
-      triggerCustomAlert('فشل إضافة الحساب: ' + err.message)
+      triggerCustomAlert('فشل إضافة الحساب: ' + getFriendlyErrorMessage(err))
     }
   }
 
   const handleEditUser = async (e) => {
     if (e) e.preventDefault()
     const { id, username, pin, role } = editUser
-    if (!username || !pin) {
+    if (!username) {
       triggerCustomAlert('يرجى ملء كافة الحقول!')
       return
     }
-    if (!/^\d{4}$/.test(pin)) {
+    if (pin && pin !== '••••' && !/^\d{4}$/.test(pin)) {
       triggerCustomAlert('رمز المرور (PIN) يجب أن يكون مكوناً من 4 أرقام فقط!')
       return
     }
     try {
-      const dupPin = await executeQuery(`SELECT * FROM users WHERE password_hash = '${escapeSql(pin)}' AND id != ${id} LIMIT 1;`)
-      if (dupPin.length > 0) {
-        triggerCustomAlert('رمز المرور (PIN) هذا مستخدم مسبقاً من قبل موظف آخر! يرجى اختيار رمز مختلف.')
-        return
+      if (pin && pin !== '••••') {
+        const dupPin = await executeQuery(`SELECT * FROM users WHERE password_hash = '${escapeSql(pin)}' AND id != ${id} LIMIT 1;`)
+        if (dupPin.length > 0) {
+          triggerCustomAlert('رمز المرور (PIN) هذا مستخدم مسبقاً من قبل موظف آخر! يرجى اختيار رمز مختلف.')
+          return
+        }
+        await executeQuery(`
+          UPDATE users 
+          SET username = '${escapeSql(username)}', 
+              password_hash = '${escapeSql(pin)}', 
+              role = '${escapeSql(role)}'
+          WHERE id = ${id};
+        `)
+      } else {
+        await executeQuery(`
+          UPDATE users 
+          SET username = '${escapeSql(username)}', 
+              role = '${escapeSql(role)}'
+          WHERE id = ${id};
+        `)
       }
-
-      await executeQuery(`
-        UPDATE users 
-        SET username = '${escapeSql(username)}', 
-            password_hash = '${escapeSql(pin)}', 
-            role = '${escapeSql(role)}'
-        WHERE id = ${id};
-      `)
+      await logEvent({
+        userId: currentUser?.id,
+        username: currentUser?.username,
+        actionType: 'user_update',
+        description: `تحديث بيانات المستخدم "${username}" (رتبة: ${role})`
+      })
       triggerCustomAlert('تم تحديث بيانات الحساب بنجاح!')
       setShowEditUserModal(false)
       await fetchUsersList()
     } catch (err) {
-      triggerCustomAlert('فشل تحديث الحساب: ' + err.message)
+      triggerCustomAlert('فشل تحديث الحساب: ' + getFriendlyErrorMessage(err))
     }
   }
 

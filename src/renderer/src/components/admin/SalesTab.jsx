@@ -24,11 +24,15 @@ export default function SalesTab({
   handleReturnItem,
   fetchSalesHistory,
   salesSortField,
-  salesSortAsc
+  salesSortAsc,
+  salesPage,
+  salesTotalCount,
+  itemsPerPage,
+  handleReprintSale
 }) {
   const handleSortClick = (field) => {
     const isAsc = salesSortField === field ? !salesSortAsc : true
-    fetchSalesHistory(salesSearch, field, isAsc)
+    fetchSalesHistory(salesSearch, field, isAsc, 1)
   }
 
   const renderSortIndicator = (field) => {
@@ -51,7 +55,7 @@ export default function SalesTab({
             value={salesSearch}
             onChange={(e) => {
               setSalesSearch(e.target.value)
-              fetchSalesHistory(e.target.value)
+              fetchSalesHistory(e.target.value, salesSortField, salesSortAsc, 1)
             }}
             style={{ margin: 0 }}
           />
@@ -59,7 +63,7 @@ export default function SalesTab({
             className="btn btn-secondary" 
             onClick={() => {
               setSalesSearch('')
-              fetchSalesHistory('')
+              fetchSalesHistory('', salesSortField, salesSortAsc, 1)
             }}
           >
             تفريغ
@@ -110,13 +114,38 @@ export default function SalesTab({
                     <td style={{ fontSize: '0.85rem' }}>{s.timestamp}</td>
                     <td>{s.username}</td>
                     <td>{s.client_name || 'عميل نقدي'}</td>
-                    <td style={{ fontWeight: 'bold', color: 'var(--accent-emerald)' }}>{s.total_amount.toFixed(2)} ج.م</td>
+                    <td style={{ fontWeight: 'bold', color: 'var(--accent-emerald)' }}>{(s.total_amount || 0).toFixed(2)} ج.م</td>
                     <td>{s.items_count} أصناف</td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="pagination-controls" style={{ marginTop: '15px' }}>
+          <div className="pagination-info">
+            عرض <strong>{salesHistory.length}</strong> من أصل <strong>{salesTotalCount}</strong> فاتورة.
+          </div>
+          <div className="pagination-buttons">
+            <button 
+              className="btn btn-sm btn-secondary" 
+              disabled={salesPage === 1}
+              onClick={() => fetchSalesHistory(salesSearch, salesSortField, salesSortAsc, salesPage - 1)}
+            >
+              السابق
+            </button>
+            <span style={{ alignSelf: 'center', padding: '0 10px', fontSize: '0.85rem' }}>
+              صفحة {salesPage} من {Math.max(1, Math.ceil(salesTotalCount / itemsPerPage))}
+            </span>
+            <button 
+              className="btn btn-sm btn-secondary" 
+              disabled={salesPage >= Math.ceil(salesTotalCount / itemsPerPage)}
+              onClick={() => fetchSalesHistory(salesSearch, salesSortField, salesSortAsc, salesPage + 1)}
+            >
+              التالي
+            </button>
+          </div>
         </div>
       </div>
 
@@ -133,37 +162,53 @@ export default function SalesTab({
                   </span>
                 )}
               </div>
-              <button 
-                className="btn btn-secondary" 
-                style={{ 
-                  color: 'var(--accent-rose)', 
-                  borderColor: 'var(--accent-rose)', 
-                  padding: '4px 10px', 
-                  fontSize: '0.8rem',
-                  opacity: selectedSale.total_amount === 0 ? 0.5 : 1,
-                  cursor: selectedSale.total_amount === 0 ? 'not-allowed' : 'pointer'
-                }}
-                onClick={() => selectedSale.total_amount > 0 && handleReturnEntireSale(selectedSale.id)}
-                disabled={selectedSale.total_amount === 0}
-              >
-                {selectedSale.total_amount === 0 ? '✓ تم إرجاع الفاتورة' : '⚠️ مرتجع كامل الفاتورة'}
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="btn btn-primary"
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  onClick={() => handleReprintSale(selectedSale.id)}
+                >
+                  🖨️ طباعة
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ 
+                    color: 'var(--accent-rose)', 
+                    borderColor: 'var(--accent-rose)', 
+                    padding: '4px 10px', 
+                    fontSize: '0.8rem',
+                    opacity: selectedSale.total_amount === 0 ? 0.5 : 1,
+                    cursor: selectedSale.total_amount === 0 ? 'not-allowed' : 'pointer'
+                  }}
+                  onClick={() => selectedSale.total_amount > 0 && handleReturnEntireSale(selectedSale.id)}
+                  disabled={selectedSale.total_amount === 0}
+                >
+                  {selectedSale.total_amount === 0 ? '✓ تم إرجاع الفاتورة' : '⚠️ مرتجع كامل الفاتورة'}
+                </button>
+              </div>
             </div>
 
             <div style={{ fontSize: '0.9rem', marginBottom: '15px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: 'var(--bg-card)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div><strong>تاريخ الفاتورة:</strong> {selectedSale.timestamp}</div>
               <div><strong>الكاشير:</strong> {selectedSale.username}</div>
               <div><strong>العميل:</strong> {selectedSale.client_name || 'عميل نقدي'}</div>
-              <div><strong>الخصم الممنوح:</strong> {selectedSale.discount.toFixed(2)} ج.م</div>
+              <div><strong>الخصم الممنوح:</strong> {(selectedSale.discount || 0).toFixed(2)} ج.م</div>
               <div><strong>طريقة الدفع:</strong> {selectedSale.payment_type}</div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {selectedSale.original_amount > 0 && selectedSale.total_amount === 0 && (
+                {(selectedSale.original_amount || 0) > 0 && selectedSale.total_amount === 0 && (
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
-                    الإجمالي الأصلي: {selectedSale.original_amount.toFixed(2)} ج.م
+                    الإجمالي الأصلي: {(selectedSale.original_amount || 0).toFixed(2)} ج.م
                   </span>
                 )}
                 <span style={{ fontSize: '1rem', color: selectedSale.total_amount === 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)', fontWeight: 'bold' }}>
-                  <strong>الإجمالي الصافي:</strong> {selectedSale.total_amount.toFixed(2)} ج.م
+                  <strong>الإجمالي الصافي:</strong> {(selectedSale.total_amount || 0).toFixed(2)} ج.م
                 </span>
               </div>
             </div>
@@ -212,9 +257,9 @@ export default function SalesTab({
                             item.quantity
                           )}
                         </td>
-                        <td>{item.unit_price.toFixed(2)} ج.م</td>
+                        <td>{(item.unit_price || 0).toFixed(2)} ج.م</td>
                         <td style={{ fontWeight: 'bold', textDecoration: isFullyReturned ? 'line-through' : 'none', color: isFullyReturned ? 'var(--text-muted)' : 'inherit' }}>
-                          {item.total_price.toFixed(2)} ج.م
+                          {(item.total_price || 0).toFixed(2)} ج.م
                         </td>
                         <td style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                           <button 

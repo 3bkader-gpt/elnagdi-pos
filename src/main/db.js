@@ -163,6 +163,19 @@ export async function initializeDatabase() {
         FOREIGN KEY(shift_id) REFERENCES shifts(id)
       );
     `)
+
+    // --- System Logs / Event Log Table ---
+    await executeSql(`
+      CREATE TABLE IF NOT EXISTS system_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        user_id INTEGER,
+        username TEXT,
+        action_type TEXT NOT NULL,
+        description TEXT,
+        details TEXT
+      );
+    `)
     await executeSql(`
       INSERT OR IGNORE INTO settings (key, value) VALUES ('store_name', 'سوبر ماركت النجدي');
     `)
@@ -200,6 +213,11 @@ export async function initializeDatabase() {
       `)
       console.log('[DB] Migrated sales table: populated original_amount for past sales.')
     } catch (e) { /* Ignore if already populated */ }
+
+    try {
+      await executeSql(`ALTER TABLE sale_items ADD COLUMN returned_qty REAL DEFAULT 0.0;`)
+      console.log('[DB] Migrated sale_items table: added returned_qty column.')
+    } catch (e) { /* Ignore if column already exists */ }
 
     // Enforce database-level triggers for integrity
     try {

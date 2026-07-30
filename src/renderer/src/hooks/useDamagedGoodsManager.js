@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { executeQuery } from '../lib/db'
-import { escapeSql } from '../lib/utils'
+import { escapeSql, getNowStr, getFriendlyErrorMessage} from '../lib/utils'
 
 export function useDamagedGoodsManager({ currentShift, fetchAdminData, triggerCustomAlert, triggerCustomConfirm }) {
   const [damagedGoodsList, setDamagedGoodsList] = useState([])
@@ -52,7 +52,7 @@ export function useDamagedGoodsManager({ currentShift, fetchAdminData, triggerCu
       }
 
       const shiftId = currentShift ? currentShift.id : 'NULL'
-      const nowStr = new Date().toLocaleString('ar-EG')
+      const nowStr = getNowStr()
       const costVal = product.cost_price || 0
 
       // We will perform updates inside a transaction
@@ -75,8 +75,7 @@ export function useDamagedGoodsManager({ currentShift, fetchAdminData, triggerCu
       if (fetchAdminData) await fetchAdminData()
       triggerCustomAlert('تم تسجيل الهالك بنجاح وخصم الكمية من المخزن وتأثيرها المالي من الأرباح!')
     } catch (err) {
-      await executeQuery('ROLLBACK;')
-      triggerCustomAlert('فشل تسجيل التالف: ' + err.message)
+      triggerCustomAlert('فشل تسجيل التالف: ' + getFriendlyErrorMessage(err))
     }
   }
 
@@ -98,8 +97,7 @@ export function useDamagedGoodsManager({ currentShift, fetchAdminData, triggerCu
         if (fetchAdminData) await fetchAdminData()
         triggerCustomAlert('تم إلغاء سجل الهالك وإرجاع الكمية إلى المخزن بنجاح!')
       } catch (err) {
-        await executeQuery('ROLLBACK;')
-        triggerCustomAlert('فشل حذف سجل الهالك: ' + err.message)
+        triggerCustomAlert('فشل حذف سجل الهالك: ' + getFriendlyErrorMessage(err))
       }
     })
   }

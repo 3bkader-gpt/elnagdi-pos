@@ -39,7 +39,7 @@ export async function getClosedShiftsHistory() {
  * @returns {Promise<object|null>}
  */
 export async function openShift({ userId, startingCash }) {
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
   await executeQuery(`
     INSERT INTO shifts (user_id, start_time, initial_cash, expected_end_cash, actual_end_cash, status)
     VALUES (${userId}, '${nowStr}', ${startingCash}, ${startingCash}, 0, 'open');
@@ -90,7 +90,7 @@ export async function calculateExpectedShiftCash(shiftId, initialCash) {
  * @returns {Promise<void>}
  */
 export async function closeShift({ shiftId, expectedCash, actualCash, difference }) {
-  const nowStr = new Date().toLocaleString('ar-EG')
+  const nowStr = getNowStr()
   await executeQuery(`
     UPDATE shifts 
     SET end_time = '${nowStr}', expected_end_cash = ${expectedCash}, actual_end_cash = ${actualCash}, difference = ${difference}, status = 'closed'
@@ -139,13 +139,12 @@ export async function addUser({ username, pin, role }) {
  * @returns {Promise<void>}
  */
 export async function updateUser({ id, username, pin, role }) {
-  await executeQuery(`
-    UPDATE users 
-    SET username = '${escapeSql(username)}', 
-        password_hash = '${escapeSql(pin)}', 
-        role = '${escapeSql(role)}'
-    WHERE id = ${id};
-  `)
+  let query = `UPDATE users SET username = '${escapeSql(username)}', role = '${escapeSql(role)}'`
+  if (pin && pin !== '••••') {
+    query += `, password_hash = '${escapeSql(pin)}'`
+  }
+  query += ` WHERE id = ${id};`
+  await executeQuery(query)
 }
 
 /**
@@ -183,9 +182,8 @@ export async function checkDuplicateUser(username, excludeId = null) {
  */
 export async function checkDuplicatePin(pin, excludeId = null) {
   const cleanPin = escapeSql(pin.trim())
-  const query = excludeId
-    ? `SELECT id FROM users WHERE password_hash = '${cleanPin}' AND id != ${excludeId} LIMIT 1;`
-    : `SELECT id FROM users WHERE password_hash = '${cleanPin}' LIMIT 1;`
+  const excludeClause = excludeId ? ` AND id != ${excludeId}` : ''
+  const query = `SELECT id FROM users WHERE password_hash = '${cleanPin}'${excludeClause} LIMIT 1;`
   const res = await executeQuery(query)
   return res && res.length > 0
 }

@@ -100,7 +100,7 @@ export default function ExpensesTab({
                   <td style={{ textAlign: 'center' }}>
                     <button 
                       className="delete-btn" 
-                      onClick={() => handleDeleteExpense(exp.id, exp.amount, exp.description)}
+                      onClick={() => handleDeleteExpense(exp)}
                       style={{ color: 'var(--accent-rose)', border: 'none', background: 'none', cursor: 'pointer' }}
                     >
                       <Trash2 size={16} />

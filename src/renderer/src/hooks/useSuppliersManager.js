@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { executeQuery } from '../lib/db'
-import { escapeSql } from '../lib/utils'
+import { escapeSql, getNowStr, getFriendlyErrorMessage} from '../lib/utils'
 
 export function useSuppliersManager({ currentShift, triggerCustomAlert, triggerCustomConfirm }) {
   const [suppliersList, setSuppliersList] = useState([])
@@ -45,7 +45,7 @@ export function useSuppliersManager({ currentShift, triggerCustomAlert, triggerC
       return
     }
     try {
-      const nowStr = new Date().toLocaleString('ar-EG')
+      const nowStr = getNowStr()
       await executeQuery(`
         INSERT INTO suppliers (name, phone, address, contact_person, debt_balance, created_at)
         VALUES ('${escapeSql(newSupplierForm.name)}', '${escapeSql(newSupplierForm.phone)}',
@@ -56,7 +56,7 @@ export function useSuppliersManager({ currentShift, triggerCustomAlert, triggerC
       setNewSupplierForm({ name: '', phone: '', address: '', contact_person: '' })
       await fetchSuppliersList()
     } catch (err) {
-      triggerCustomAlert('فشل إضافة المورد: ' + err.message)
+      triggerCustomAlert('فشل إضافة المورد: ' + getFriendlyErrorMessage(err))
     }
   }
 
@@ -70,7 +70,7 @@ export function useSuppliersManager({ currentShift, triggerCustomAlert, triggerC
       return
     }
     try {
-      const nowStr = new Date().toLocaleString('ar-EG')
+      const nowStr = getNowStr()
       const remaining = total - paid
       const shiftId = currentShift ? currentShift.id : 'NULL'
       let sql = 'BEGIN TRANSACTION;\n'
@@ -90,7 +90,7 @@ export function useSuppliersManager({ currentShift, triggerCustomAlert, triggerC
       const updated = await executeQuery(`SELECT * FROM suppliers WHERE id = ${selectedSupplier.id} LIMIT 1;`)
       if (updated.length > 0) await fetchSupplierProfile(updated[0])
     } catch (err) {
-      triggerCustomAlert('فشل تسجيل الفاتورة: ' + err.message)
+      triggerCustomAlert('فشل تسجيل الفاتورة: ' + getFriendlyErrorMessage(err))
     }
   }
 
@@ -102,7 +102,7 @@ export function useSuppliersManager({ currentShift, triggerCustomAlert, triggerC
       return
     }
     try {
-      const nowStr = new Date().toLocaleString('ar-EG')
+      const nowStr = getNowStr()
       const shiftId = currentShift ? currentShift.id : 'NULL'
       let sql = 'BEGIN TRANSACTION;\n'
       sql += `UPDATE suppliers SET debt_balance = debt_balance - ${amount} WHERE id = ${selectedSupplier.id};\n`
@@ -116,16 +116,19 @@ export function useSuppliersManager({ currentShift, triggerCustomAlert, triggerC
       const updated = await executeQuery(`SELECT * FROM suppliers WHERE id = ${selectedSupplier.id} LIMIT 1;`)
       if (updated.length > 0) await fetchSupplierProfile(updated[0])
     } catch (err) {
-      triggerCustomAlert('فشل تسجيل السداد: ' + err.message)
+      triggerCustomAlert('فشل تسجيل السداد: ' + getFriendlyErrorMessage(err))
     }
   }
 
   const handleDeleteSupplier = async (supplierId) => {
     triggerCustomConfirm('هل أنت متأكد من حذف هذا المورد وكافة سجلاته؟', async () => {
       try {
-        await executeQuery(`DELETE FROM supplier_ledger WHERE supplier_id = ${supplierId};`)
-        await executeQuery(`DELETE FROM supplier_purchases WHERE supplier_id = ${supplierId};`)
-        await executeQuery(`DELETE FROM suppliers WHERE id = ${supplierId};`)
+        let sql = 'BEGIN TRANSACTION;\n'
+        sql += `DELETE FROM supplier_ledger WHERE supplier_id = ${supplierId};\n`
+        sql += `DELETE FROM supplier_purchases WHERE supplier_id = ${supplierId};\n`
+        sql += `DELETE FROM suppliers WHERE id = ${supplierId};\n`
+        sql += 'COMMIT;\n'
+        await executeQuery(sql)
         setSelectedSupplier(null)
         setSupplierLedger([])
         setSupplierPurchases([])
@@ -134,7 +137,7 @@ export function useSuppliersManager({ currentShift, triggerCustomAlert, triggerC
         if (err.message && err.message.includes('FOREIGN KEY')) {
           triggerCustomAlert('لا يمكن حذف هذا المورد لأنه مرتبط بسجلات أو حركات شراء سابقة بالنظام.')
         } else {
-          triggerCustomAlert('فشل حذف المورد: ' + err.message)
+          triggerCustomAlert('فشل حذف المورد: ' + getFriendlyErrorMessage(err))
         }
       }
     })

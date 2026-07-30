@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 
 /**
  * @param {object} props
@@ -31,6 +31,21 @@ export default function InventoryTab({
   productsSortField,
   productsSortAsc
 }) {
+  const debounceRef = useRef(null)
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value
+    setAdminSearch(val)
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+
+    debounceRef.current = setTimeout(() => {
+      fetchInventoryPage(1, val)
+    }, 150)
+  }
+
   const handleSortClick = (field) => {
     const isAsc = productsSortField === field ? !productsSortAsc : true
     fetchInventoryPage(adminPage, adminSearch, field, isAsc)
@@ -45,6 +60,9 @@ export default function InventoryTab({
       <form 
         onSubmit={(e) => {
           e.preventDefault()
+          if (debounceRef.current) {
+            clearTimeout(debounceRef.current)
+          }
           fetchInventoryPage(1, adminSearch)
         }}
         className="inventory-actions-row"
@@ -55,9 +73,9 @@ export default function InventoryTab({
             ref={adminSearchInputRef}
             onFocus={(e) => e.target.select()}
             className="admin-search-input" 
-            placeholder="ابحث بالاسم أو الباركود... (اضغط Enter)" 
+            placeholder="ابحث بالاسم أو الباركود..." 
             value={adminSearch}
-            onChange={(e) => setAdminSearch(e.target.value)}
+            onChange={handleSearchChange}
             style={{ flex: 1 }}
           />
           <button type="submit" className="btn btn-secondary" style={{ padding: '8px 16px' }}>

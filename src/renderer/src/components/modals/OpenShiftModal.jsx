@@ -19,7 +19,7 @@ const OpenShiftModal = ({
           <p>البائع الحالي: {currentUser?.username}</p>
         </div>
         <div className="form-group">
-          <label>المبلغ المالي الافتتاحي بالدرج (مستلم من الوردية السابقة تلقائياً)</label>
+          <label>المبلغ المالي الافتتاحي بالدرج (العهدة / الفكة)</label>
           <input 
             type="number" 
             className="form-input" 
@@ -28,7 +28,7 @@ const OpenShiftModal = ({
             onChange={(e) => setStartingCash(e.target.value)}
           />
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', textAlign: 'center', marginTop: '6px' }}>
-            💡 تم جلب هذا المبلغ تلقائياً من رصيد تسليم الكاشير السابق. يمكنك تعديله إذا قمت بإضافة/سحب نقدية.
+            💡 نظام التوريد: يتم تسليم إيراد الوردية السابقة في ظرف. هذا المبلغ هو فقط "العهدة" أو "الفكة" التي تبدأ بها ورديتك (الافتراضي 200 ج.م).
           </span>
         </div>
         <button className="btn btn-success" onClick={handleStartShift}>

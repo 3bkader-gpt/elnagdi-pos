@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { executeQuery } from '../../lib/db'
-import { parseLocaleDateString } from '../../lib/utils'
+import { parseLocaleDateString, getNowStr } from '../../lib/utils'
 import {
   Cpu,
   ShoppingCart,
@@ -35,12 +35,8 @@ export default function ReorderingTab() {
       sinceDate.setDate(sinceDate.getDate() - 30)
       sinceDate.setHours(0, 0, 0, 0)
 
-      const shifts = await executeQuery('SELECT id, start_time FROM shifts;')
-      const matchingShifts = shifts.filter((sh) => {
-        if (!sh.start_time) return false
-        const parsed = parseLocaleDateString(sh.start_time)
-        return parsed >= sinceDate
-      })
+      const sinceStr = getNowStr(sinceDate)
+      const matchingShifts = await executeQuery(`SELECT id FROM shifts WHERE start_time >= '${sinceStr}';`)
       const shiftIds = matchingShifts.map((sh) => sh.id)
 
       // 3. Fetch sales quantity for these shifts
@@ -128,6 +124,34 @@ export default function ReorderingTab() {
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleExportPDF = async () => {
+    if (items.length === 0) return
+    try {
+      const mappedItems = items.map((item) => ({
+        name: item.name,
+        stock_qty: item.stock,
+        min_limit: item.reorder_limit
+      }))
+      await window.api.generateShortagesPdf(mappedItems)
+    } catch (e) {
+      console.error('PDF export error:', e)
+    }
+  }
+
+  const handlePrintInstant = async () => {
+    if (items.length === 0) return
+    try {
+      const mappedItems = items.map((item) => ({
+        name: item.name,
+        stock_qty: item.stock,
+        min_limit: item.reorder_limit
+      }))
+      await window.api.printShortagesToPrinter(mappedItems)
+    } catch (e) {
+      console.error('Instant print error:', e)
+    }
   }
 
   return (
@@ -258,28 +282,67 @@ export default function ReorderingTab() {
             <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
           </div>
 
-          {/* Copy Order trigger */}
-          <button
-            onClick={handleCopyOrder}
-            disabled={items.length === 0}
-            style={{
-              padding: '8px 18px',
-              borderRadius: '8px',
-              border: 'none',
-              background: copied ? 'var(--accent-emerald)' : 'var(--accent-blue)',
-              color: '#fff',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.85rem',
-              transition: 'background-color 0.2s'
-            }}
-          >
-            {copied ? <Check size={16} /> : <Copy size={16} />}
-            {copied ? 'تم نسخ الطلبية!' : 'نسخ قائمة الطلبية (واتساب)'}
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={handlePrintInstant}
+              disabled={items.length === 0}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'var(--accent-blue)',
+                color: '#fff',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.85rem'
+              }}
+            >
+              🖨️ طباعة فورية (حراري)
+            </button>
+            <button
+              onClick={handleExportPDF}
+              disabled={items.length === 0}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.85rem'
+              }}
+            >
+              📑 حفظ PDF
+            </button>
+            <button
+              onClick={handleCopyOrder}
+              disabled={items.length === 0}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                border: 'none',
+                background: copied ? 'var(--accent-emerald)' : 'var(--accent-blue)',
+                color: '#fff',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.85rem',
+                transition: 'background-color 0.2s'
+              }}
+            >
+              {copied ? <Check size={16} /> : <Copy size={16} />}
+              {copied ? 'تم نسخ الطلبية!' : 'نسخ قائمة الطلبية (واتساب)'}
+            </button>
+          </div>
         </div>
 
         {items.length === 0 ? (

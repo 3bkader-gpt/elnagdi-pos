@@ -57,7 +57,7 @@ export default function UsersTab({
                   <tr key={u.id}>
                     <td style={{ fontWeight: 'bold' }}>#{u.id}</td>
                     <td style={{ fontWeight: '600' }}>{u.username}</td>
-                    <td style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }}>{u.password_hash}</td>
+                    <td style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }}>••••</td>
                     <td>
                       <span className="badge-status" style={{
                         backgroundColor: u.role === 'admin' ? 'rgba(37, 99, 235, 0.15)' : 'rgba(107, 114, 128, 0.15)',
@@ -73,7 +73,7 @@ export default function UsersTab({
                       <button 
                         className="btn btn-sm btn-secondary" 
                         onClick={() => {
-                          setEditUser({ id: u.id, username: u.username, pin: u.password_hash, role: u.role })
+                          setEditUser({ id: u.id, username: u.username, pin: '••••', role: u.role })
                           setShowEditUserModal(true)
                         }}
                       >

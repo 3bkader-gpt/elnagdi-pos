@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { executeQuery } from '../lib/db'
-import { escapeSql, parseLocaleDateString } from '../lib/utils'
+import { escapeSql, parseLocaleDateString, getNowStr, getFriendlyErrorMessage} from '../lib/utils'
 
 export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert, triggerCustomConfirm }) {
   const [clientsList, setClientsList] = useState([])
@@ -29,6 +29,7 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
     if (period === 'all') return true
     if (!itemTimestamp) return false
     const itemDate = parseLocaleDateString(itemTimestamp)
+    if (!itemDate) return false
     const now = new Date()
     const diffTime = Math.abs(now - itemDate)
     if (period === 'daily') {
@@ -57,7 +58,9 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
     let lastPurchase = 'لا يوجد'
     if (filteredPurchases.length > 0) {
       const sorted = [...filteredPurchases].sort((a, b) => {
-        return parseLocaleDateString(b.timestamp) - parseLocaleDateString(a.timestamp)
+        const db = parseLocaleDateString(b.timestamp) || new Date(0)
+        const da = parseLocaleDateString(a.timestamp) || new Date(0)
+        return db - da
       })
       lastPurchase = sorted[0].timestamp
     }
@@ -130,18 +133,20 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
           totalSpent: clientTotals[cid]
         })).sort((a, b) => b.totalSpent - a.totalSpent)
 
-        // Fetch names/details for top clients (up to 10 for the report)
-        const reportData = []
-        for (const item of sortedClients) {
-          const details = await executeQuery(`SELECT name, phone FROM clients WHERE id = ${item.client_id} LIMIT 1;`)
-          if (details && details.length > 0) {
-            reportData.push({
+        let reportData = []
+        const clientIds = sortedClients.map(c => c.client_id)
+        if (clientIds.length > 0) {
+          const detailsList = await executeQuery(`SELECT id, name, phone FROM clients WHERE id IN (${clientIds.join(',')});`)
+          const clientMap = Object.fromEntries(detailsList.map(c => [c.id, c]))
+          reportData = sortedClients.map(item => {
+            const detail = clientMap[item.client_id]
+            return {
               id: item.client_id,
-              name: details[0].name,
-              phone: details[0].phone,
+              name: detail?.name || 'عميل محذوف',
+              phone: detail?.phone || '',
               totalSpent: item.totalSpent
-            })
-          }
+            }
+          })
         }
         setMonthlyClientsReport(reportData)
 
@@ -225,7 +230,7 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
       return
     }
     try {
-      const nowStr = new Date().toLocaleString('ar-EG')
+      const nowStr = getNowStr()
       if (phone) {
         const dup = await executeQuery(`SELECT * FROM clients WHERE phone = '${escapeSql(phone)}' LIMIT 1;`)
         if (dup.length > 0) {
@@ -243,7 +248,7 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
       await fetchClientsList()
       await fetchClientStats()
     } catch (err) {
-      triggerCustomAlert('فشل إضافة العميل: ' + err.message)
+      triggerCustomAlert('فشل إضافة العميل: ' + getFriendlyErrorMessage(err))
     }
   }
 
@@ -280,7 +285,7 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
         }
       }
     } catch (err) {
-      triggerCustomAlert('فشل تحديث العميل: ' + err.message)
+      triggerCustomAlert('فشل تحديث العميل: ' + getFriendlyErrorMessage(err))
     }
   }
 
@@ -295,7 +300,7 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
 
     const saveRepayment = async () => {
       try {
-        const nowStr = new Date().toLocaleString('ar-EG')
+        const nowStr = getNowStr()
         const shiftId = currentShift ? currentShift.id : 'NULL'
         
         let sql = 'BEGIN TRANSACTION;\n'
@@ -316,7 +321,7 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
         await fetchClientStats()
         if (fetchStats) await fetchStats() // refresh safe balance
       } catch (err) {
-        triggerCustomAlert('فشلت عملية السداد: ' + err.message)
+        triggerCustomAlert('فشلت عملية السداد: ' + getFriendlyErrorMessage(err))
       }
     }
 
@@ -331,8 +336,8 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
   }
 
   const handleDeleteClient = async (client) => {
-    if (client.debt_balance > 0) {
-      triggerCustomAlert('لا يمكن حذف عميل لديه مديونية مستحقة!')
+    if (client.debt_balance !== 0) {
+      triggerCustomAlert('لا يمكن حذف عميل لديه رصيد مالي (دائن أو مدين)!')
       return
     }
     triggerCustomConfirm(`هل أنت متأكد من حذف العميل "${client.name}" نهائياً من النظام؟`, async () => {
@@ -346,7 +351,7 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
         if (err.message && err.message.includes('FOREIGN KEY')) {
           triggerCustomAlert('لا يمكن حذف هذا العميل لأنه لديه معاملات أو فواتير سابقة مسجلة بالنظام.')
         } else {
-          triggerCustomAlert('فشل حذف العميل: ' + err.message)
+          triggerCustomAlert('فشل حذف العميل: ' + getFriendlyErrorMessage(err))
         }
       }
     })

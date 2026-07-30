@@ -20,16 +20,32 @@ const AddProductModal = ({
         <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div className="form-group">
             <label>الباركود (Barcode) *</label>
-            <input 
-              type="text" 
-              ref={addProductBarcodeRef}
-              onFocus={(e) => e.target.select()}
-              className="form-input" 
-              value={newProduct.barcode}
-              onChange={(e) => setNewProduct(prev => ({ ...prev, barcode: e.target.value }))}
-              required
-              placeholder="مثال: 622300..."
-            />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input 
+                type="text" 
+                ref={addProductBarcodeRef}
+                onFocus={(e) => e.target.select()}
+                className="form-input" 
+                value={newProduct.barcode}
+                onChange={(e) => setNewProduct(prev => ({ ...prev, barcode: e.target.value }))}
+                required
+                placeholder="مثال: 622300..."
+                style={{ flex: 1 }}
+              />
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ padding: '0 12px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                onClick={() => {
+                  const ts = Date.now().toString().slice(-8)
+                  const rand = Math.floor(Math.random() * 100).toString().padStart(2, '0')
+                  const code = '290' + ts + rand
+                  setNewProduct(prev => ({ ...prev, barcode: code }))
+                }}
+              >
+                توليد تلقائي
+              </button>
+            </div>
           </div>
           <div className="form-group">
             <label>اسم الصنف *</label>
@@ -110,7 +126,7 @@ const AddProductModal = ({
                 className="form-input" 
                 value={newProduct.unit}
                 onChange={(e) => setNewProduct(prev => ({ ...prev, unit: e.target.value }))}
-                placeholder="علبة"
+                placeholder="مثال: علبة"
               />
             </div>
           </div>
