@@ -8,3 +8,4 @@ tests/temp_test.db
 *.log*
 .DS_Store
 .eslintcache
+pdf/
