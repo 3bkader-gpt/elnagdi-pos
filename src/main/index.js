@@ -261,8 +261,12 @@ ${tableRows}  )
   // IPC SQL Executor Bridge
   ipcMain.handle('execute-sql', async (event, sqlQuery) => {
     try {
-      const forbidden = /^\s*(DROP|ALTER\s+TABLE\s+\w+\s+RENAME|ATTACH|DETACH)/i
+      if (typeof sqlQuery !== 'string' || !sqlQuery.trim()) {
+        throw new Error('Invalid SQL query input')
+      }
+      const forbidden = /(DROP\s+TABLE|ALTER\s+TABLE|ATTACH\s+DATABASE|DETACH\s+DATABASE|DELETE\s+FROM\s+users)/i
       if (forbidden.test(sqlQuery)) {
+        console.warn('[SECURITY] Blocked dangerous SQL operation:', sqlQuery)
         throw new Error('Forbidden SQL operation')
       }
       return await executeSql(sqlQuery)
@@ -271,6 +275,7 @@ ${tableRows}  )
       throw e
     }
   })
+
 
   // IPC Backup Database Bridge
   ipcMain.handle('backup-database', async (event) => {
