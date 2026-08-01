@@ -384,7 +384,15 @@ export function usePOSController({
             WHERE barcode = '${code}' OR barcode = '${cleanCode}' 
             LIMIT 1;
           `)
-          return products.length > 0 ? { ...products[0], forcedQty: p.qty } : null
+          if (products.length > 0) {
+            const item = products[0]
+            let forcedQty = p.qty
+            if (p.isPriceEmbedded && p.totalPrice && parseFloat(item.retail_price) > 0) {
+              forcedQty = round2(p.totalPrice / parseFloat(item.retail_price))
+            }
+            return { ...item, forcedQty: forcedQty > 0 ? forcedQty : 1 }
+          }
+          return null
         } else {
           const products = await executeQuery(`
             SELECT * FROM products WHERE barcode = '${escapeSql(p.barcode)}' LIMIT 1;

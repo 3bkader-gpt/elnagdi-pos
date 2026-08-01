@@ -157,21 +157,40 @@ export function useBarcode({
   }, [isLocked, currentView, openShiftModal, closeShiftModal, managerApprovalModal, showAddModal, adminTab, customAlert, customConfirm])
 
   /**
-   * Parse weighted scale barcode (e.g. prefix 20 + product code + weight + checksum).
-   * Format: 20 + CCCCC (5 chars product code) + WWWWW (5 chars weight in grams) + X (checksum).
+   * Parse weighted scale barcode (e.g. prefixes 20, 21, 22, 25 + product code + weight/price + checksum).
+   * Weight Format (20, 21, 25): 2X + CCCCC (5 chars code) + WWWWW (5 chars weight in grams / 1000) + C.
+   * Price Format (22): 22 + CCCCC (5 chars code) + PPPPP (5 chars price in EGP / 100) + C.
    * 
    * @param {string} rawBarcode 
-   * @returns {object} { isWeighted: boolean, barcode: string, qty?: number }
+   * @returns {object} { isWeighted: boolean, isPriceEmbedded: boolean, barcode: string, qty?: number, totalPrice?: number }
    */
   const parseScaleBarcode = (rawBarcode) => {
     const clean = rawBarcode.trim()
-    if (clean.length === 13 && clean.startsWith('20')) {
+    const scalePrefixes = ['20', '21', '22', '25']
+    const hasScalePrefix = clean.length === 13 && scalePrefixes.some(prefix => clean.startsWith(prefix))
+
+    if (hasScalePrefix) {
+      const prefix = clean.substring(0, 2)
       const productCode = clean.substring(2, 7)
-      const weightVal = parseFloat(clean.substring(7, 12)) / 1000.0
-      return {
-        isWeighted: true,
-        barcode: productCode,
-        qty: weightVal
+      const valueRaw = parseFloat(clean.substring(7, 12)) || 0
+
+      if (prefix === '22') {
+        const totalPrice = valueRaw / 100.0
+        return {
+          isWeighted: true,
+          isPriceEmbedded: true,
+          barcode: productCode,
+          totalPrice: totalPrice,
+          qty: 1
+        }
+      } else {
+        const weightVal = valueRaw / 1000.0
+        return {
+          isWeighted: true,
+          isPriceEmbedded: false,
+          barcode: productCode,
+          qty: weightVal
+        }
       }
     }
     return { isWeighted: false, barcode: clean }
