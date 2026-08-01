@@ -165,12 +165,12 @@ export async function createSaleTransaction({ shiftId, cart, cartTotal, discount
 
   // Insert sales invoice
   sqlQuery += `INSERT INTO sales (shift_id, timestamp, total_amount, discount, payment_type, client_name, client_id) 
-               VALUES (${shiftId}, '${nowStr}', ${cartTotal}, ${finalDiscount}, '${paymentType}', '${escapeSql(clientDbValue)}', ${clientId || 'NULL'});\n`
+               VALUES (${shiftId}, '${nowStr}', ${cartTotal}, ${finalDiscount}, '${escapeSql(paymentType)}', '${escapeSql(clientDbValue)}', ${clientId || 'NULL'});\n`
                
   // Insert line items
   cart.forEach((item) => {
     sqlQuery += `INSERT INTO sale_items (sale_id, product_barcode, quantity, unit_price, total_price, cost_price) 
-                 VALUES ((SELECT MAX(id) FROM sales), '${escapeSql(item.barcode)}', ${item.qty}, ${item.price}, ${item.total}, ${item.cost_price || 0.0});\n`
+                 VALUES ((SELECT MAX(id) FROM sales LIMIT 1), '${escapeSql(item.barcode)}', ${item.qty}, ${item.price}, ${item.total}, ${item.cost_price || 0.0});\n`
   })
 
   // If debt/points/payment update for clients
@@ -180,7 +180,7 @@ export async function createSaleTransaction({ shiftId, cart, cartTotal, discount
     if (paymentType === 'آجل') {
       sqlQuery += `UPDATE clients SET debt_balance = debt_balance + ${cartTotal} WHERE id = ${clientId};\n`
       sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) 
-                   VALUES (${clientId}, 'sale', ${cartTotal}, 'فاتورة مبيعات آجل #' || (SELECT MAX(id) FROM sales), '${nowStr}');\n`
+                   VALUES (${clientId}, 'sale', ${cartTotal}, 'فاتورة مبيعات آجل #' || (SELECT MAX(id) FROM sales LIMIT 1), '${nowStr}');\n`
     }
   }
 

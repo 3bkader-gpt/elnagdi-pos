@@ -578,24 +578,25 @@ export function usePOSController({
       }
 
       let sqlQuery = 'BEGIN TRANSACTION;\n'
-      sqlQuery += `INSERT INTO sales (shift_id, timestamp, total_amount, original_amount, discount, payment_type, client_name, client_id) VALUES (${currentShift.id}, '${nowStr}', ${cartTotal}, ${cartSubtotal || cartTotal}, ${finalDiscount}, '${paymentType}', '${escapeSql(clientDbValue)}', ${clientId || 'NULL'});\n`
+      sqlQuery += `INSERT INTO sales (shift_id, timestamp, total_amount, original_amount, discount, payment_type, client_name, client_id) VALUES (${currentShift.id}, '${nowStr}', ${cartTotal}, ${cartSubtotal || cartTotal}, ${finalDiscount}, '${escapeSql(paymentType)}', '${escapeSql(clientDbValue)}', ${clientId || 'NULL'});\n`
       
       cart.forEach((item) => {
-        sqlQuery += `INSERT INTO sale_items (sale_id, product_barcode, quantity, unit_price, total_price, cost_price) VALUES ((SELECT MAX(id) FROM sales), '${escapeSql(item.barcode)}', ${item.qty}, ${item.price}, ${item.total}, ${item.cost_price || 0.0});\n`
+        sqlQuery += `INSERT INTO sale_items (sale_id, product_barcode, quantity, unit_price, total_price, cost_price) VALUES ((SELECT MAX(id) FROM sales LIMIT 1), '${escapeSql(item.barcode)}', ${item.qty}, ${item.price}, ${item.total}, ${item.cost_price || 0.0});\n`
         sqlQuery += `UPDATE products SET stock_qty = stock_qty - ${item.qty} WHERE barcode = '${escapeSql(item.barcode)}';\n`
       })
 
       if (clientId) {
+        const pointsEarned = Math.floor(cartTotal / 100)
         sqlQuery += `UPDATE clients SET points = points + ${pointsEarned} WHERE id = ${clientId};\n`
         if (paymentType === 'آجل') {
           sqlQuery += `UPDATE clients SET debt_balance = debt_balance + ${cartTotal} WHERE id = ${clientId};\n`
-          sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'sale', ${cartTotal}, 'شراء آجل فاتورة رقم #' || (SELECT MAX(id) FROM sales), '${nowStr}');\n`
+          sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'sale', ${cartTotal}, 'شراء آجل فاتورة رقم #' || (SELECT MAX(id) FROM sales LIMIT 1), '${nowStr}');\n`
         }
         
         // استهلاك الرصيد كخصم (إذا تم استخدامه)
         if (parseFloat(appliedCredit) > 0) {
           sqlQuery += `UPDATE clients SET debt_balance = debt_balance + ${parseFloat(appliedCredit)} WHERE id = ${clientId};\n`
-          sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'sale', ${parseFloat(appliedCredit)}, 'استهلاك رصيد كخصم في فاتورة رقم #' || (SELECT MAX(id) FROM sales), '${nowStr}');\n`
+          sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'sale', ${parseFloat(appliedCredit)}, 'استهلاك رصيد كخصم في فاتورة رقم #' || (SELECT MAX(id) FROM sales LIMIT 1), '${nowStr}');\n`
         }
 
         // حفظ الباقي في رصيد العميل (إذا تم تحديده والـ paidAmount أكبر من الصافي)
@@ -603,7 +604,7 @@ export function usePOSController({
         const depositVal = Math.min(parseFloat(depositChange) || 0, changeVal)
         if (depositVal > 0) {
           sqlQuery += `UPDATE clients SET debt_balance = debt_balance - ${depositVal} WHERE id = ${clientId};\n`
-          sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'payment', ${depositVal}, 'حفظ الباقي نقدي رصيد في فاتورة رقم #' || (SELECT MAX(id) FROM sales), '${nowStr}');\n`
+          sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'payment', ${depositVal}, 'حفظ الباقي نقدي رصيد في فاتورة رقم #' || (SELECT MAX(id) FROM sales LIMIT 1), '${nowStr}');\n`
         }
       }
 
