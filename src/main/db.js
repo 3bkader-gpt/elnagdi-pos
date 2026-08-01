@@ -223,6 +223,20 @@ export async function initializeDatabase() {
       );
     `)
 
+    // Performance optimization: foreign key indices
+    try {
+      await executeSql(`
+        CREATE INDEX IF NOT EXISTS idx_sales_shift_id ON sales(shift_id);
+        CREATE INDEX IF NOT EXISTS idx_sales_client_id ON sales(client_id);
+        CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
+        CREATE INDEX IF NOT EXISTS idx_sale_items_barcode ON sale_items(product_barcode);
+        CREATE INDEX IF NOT EXISTS idx_safe_ledger_shift_id ON safe_ledger(shift_id);
+        CREATE INDEX IF NOT EXISTS idx_client_ledger_client_id ON client_ledger(client_id);
+        CREATE INDEX IF NOT EXISTS idx_supplier_ledger_supplier_id ON supplier_ledger(supplier_id);
+      `)
+      console.log('[DB] Installed performance indices on foreign keys.')
+    } catch (e) { console.error('Failed to create performance indices:', e) }
+
     await executeSql(`
       INSERT OR IGNORE INTO settings (key, value) VALUES ('store_name', 'سوبر ماركت النجدي');
     `)
