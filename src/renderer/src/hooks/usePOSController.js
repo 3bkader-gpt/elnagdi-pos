@@ -602,6 +602,16 @@ export function usePOSController({
         if (paymentType === 'آجل') {
           sqlQuery += `UPDATE clients SET debt_balance = debt_balance + ${cartTotal} WHERE id = ${clientId};\n`
           sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'sale', ${cartTotal}, 'شراء آجل فاتورة رقم #' || (SELECT MAX(id) FROM sales LIMIT 1), '${nowStr}');\n`
+        } else if (paymentType === 'دفع جزئي') {
+          const upfrontPaid = Math.min(cartTotal, Math.max(0, parseFloat(paidAmount) || 0))
+          const remainingDebt = Math.max(0, cartTotal - upfrontPaid)
+          if (remainingDebt > 0) {
+            sqlQuery += `UPDATE clients SET debt_balance = debt_balance + ${remainingDebt} WHERE id = ${clientId};\n`
+            sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'sale', ${remainingDebt}, 'متبقي بيع دفع جزئي فاتورة رقم #' || (SELECT MAX(id) FROM sales LIMIT 1), '${nowStr}');\n`
+          }
+          if (upfrontPaid > 0) {
+            sqlQuery += `INSERT INTO safe_ledger (shift_id, type, amount, description, timestamp) VALUES (${currentShift.id}, 'inflow', ${upfrontPaid}, 'مقدم نقدي بيع دفع جزئي فاتورة رقم #' || (SELECT MAX(id) FROM sales LIMIT 1), '${nowStr}');\n`
+          }
         }
         
         // استهلاك الرصيد كخصم (إذا تم استخدامه)

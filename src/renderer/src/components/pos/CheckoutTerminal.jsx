@@ -357,29 +357,29 @@ function CheckoutTerminal({
             </div>
 
             <div className="checkout-actions">
-              <div style={{ display: 'flex', gap: '8px', width: '260px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '6px', width: '310px', flexWrap: 'wrap' }}>
                 <button 
                   className={`btn ${paymentType === 'نقدي' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setPaymentType('نقدي')}
-                  style={{ padding: '6px 12px', fontSize: '0.85rem', flex: 1 }}
+                  style={{ padding: '6px 10px', fontSize: '0.82rem', flex: 1 }}
                 >
-                  <DollarSign size={16} />
+                  <DollarSign size={15} />
                   نقدي
                 </button>
                 <button 
                   className={`btn ${paymentType === 'فودافون كاش' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setPaymentType('فودافون كاش')}
-                  style={{ padding: '6px 12px', fontSize: '0.85rem', flex: 1 }}
+                  style={{ padding: '6px 10px', fontSize: '0.82rem', flex: 1 }}
                 >
-                  <CreditCard size={16} />
+                  <CreditCard size={15} />
                   فودافون
                 </button>
                 <button 
                   className={`btn ${paymentType === 'انستا باي' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setPaymentType('انستا باي')}
-                  style={{ padding: '6px 12px', fontSize: '0.85rem', flex: 1 }}
+                  style={{ padding: '6px 10px', fontSize: '0.82rem', flex: 1 }}
                 >
-                  <CreditCard size={16} />
+                  <CreditCard size={15} />
                   انستا باي
                 </button>
                 <button 
@@ -391,10 +391,24 @@ function CheckoutTerminal({
                     }
                     setPaymentType('آجل')
                   }}
-                  style={{ padding: '6px 12px', fontSize: '0.85rem', flex: 1 }}
+                  style={{ padding: '6px 10px', fontSize: '0.82rem', flex: 1 }}
                 >
-                  <BookOpen size={16} />
+                  <BookOpen size={15} />
                   آجل
+                </button>
+                <button 
+                  className={`btn ${paymentType === 'دفع جزئي' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => {
+                    if (!clientName.trim()) {
+                      alert('يرجى تحديد العميل أولاً لإجراء عملية دفع جزئي!')
+                      return
+                    }
+                    setPaymentType('دفع جزئي')
+                  }}
+                  style={{ padding: '6px 10px', fontSize: '0.82rem', flex: 1, backgroundColor: paymentType === 'دفع جزئي' ? '#8b5cf6' : undefined, color: paymentType === 'دفع جزئي' ? '#fff' : undefined }}
+                >
+                  <DollarSign size={15} />
+                  دفع جزئي
                 </button>
               </div>
 
