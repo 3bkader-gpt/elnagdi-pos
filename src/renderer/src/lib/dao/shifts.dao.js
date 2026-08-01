@@ -106,7 +106,8 @@ export async function closeShift({ shiftId, expectedCash, actualCash, difference
  */
 export async function authenticateUser(pin) {
   const cleanPin = escapeSql(pin.trim())
-  const users = await executeQuery(`SELECT * FROM users WHERE password_hash = '${cleanPin}' LIMIT 1;`)
+  const hashedPin = await hashPin(pin.trim())
+  const users = await executeQuery(`SELECT * FROM users WHERE (password_hash = '${escapeSql(hashedPin)}' OR password_hash = '${cleanPin}') LIMIT 1;`)
   return (users && users.length > 0) ? users[0] : null
 }
 

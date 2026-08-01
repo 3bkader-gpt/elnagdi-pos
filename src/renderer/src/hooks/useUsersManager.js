@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { executeQuery } from '../lib/db'
-import { escapeSql, getFriendlyErrorMessage} from '../lib/utils'
+import { escapeSql, getFriendlyErrorMessage, hashPin } from '../lib/utils'
 import { logEvent } from '../lib/dao/logs.dao'
 
 export function useUsersManager({ currentUser, fetchStats, fetchAdminData, triggerCustomAlert, triggerCustomConfirm }) {
@@ -107,7 +107,8 @@ COMMIT;`)
         triggerCustomAlert('اسم المستخدم هذا مسجل مسبقاً! يرجى اختيار اسم آخر.')
         return
       }
-      const dupPin = await executeQuery(`SELECT * FROM users WHERE password_hash = '${escapeSql(pin)}' LIMIT 1;`)
+      const hashedPin = await hashPin(pin)
+      const dupPin = await executeQuery(`SELECT * FROM users WHERE (password_hash = '${escapeSql(hashedPin)}' OR password_hash = '${escapeSql(pin)}') LIMIT 1;`)
       if (dupPin.length > 0) {
         triggerCustomAlert('رمز المرور (PIN) هذا مستخدم مسبقاً من قبل موظف آخر! يرجى اختيار رمز مختلف.')
         return
@@ -115,7 +116,7 @@ COMMIT;`)
 
       await executeQuery(`
         INSERT INTO users (username, password_hash, role)
-        VALUES ('${escapeSql(username)}', '${escapeSql(pin)}', '${escapeSql(role)}');
+        VALUES ('${escapeSql(username)}', '${escapeSql(hashedPin)}', '${escapeSql(role)}');
       `)
       await logEvent({
         userId: currentUser?.id,
@@ -145,7 +146,8 @@ COMMIT;`)
     }
     try {
       if (pin && pin !== '••••') {
-        const dupPin = await executeQuery(`SELECT * FROM users WHERE password_hash = '${escapeSql(pin)}' AND id != ${id} LIMIT 1;`)
+        const hashedPin = await hashPin(pin)
+        const dupPin = await executeQuery(`SELECT * FROM users WHERE (password_hash = '${escapeSql(hashedPin)}' OR password_hash = '${escapeSql(pin)}') AND id != ${id} LIMIT 1;`)
         if (dupPin.length > 0) {
           triggerCustomAlert('رمز المرور (PIN) هذا مستخدم مسبقاً من قبل موظف آخر! يرجى اختيار رمز مختلف.')
           return
@@ -153,7 +155,7 @@ COMMIT;`)
         await executeQuery(`
           UPDATE users 
           SET username = '${escapeSql(username)}', 
-              password_hash = '${escapeSql(pin)}', 
+              password_hash = '${escapeSql(hashedPin)}', 
               role = '${escapeSql(role)}'
           WHERE id = ${id};
         `)

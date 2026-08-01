@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { escapeSql, normalizeDigits, playSound, getNowStr, getFriendlyErrorMessage} from '../lib/utils'
+import { escapeSql, normalizeDigits, playSound, getNowStr, getFriendlyErrorMessage, hashPin } from '../lib/utils'
 import { executeQuery } from '../lib/db'
 import { generateReceiptHtml, generateReprintHtml, generateGrandShiftReportHtml } from '../lib/printTemplates'
 import { logEvent } from '../lib/dao/logs.dao'
@@ -119,7 +119,8 @@ export function usePOSController({
         return
       }
       const escapedPin = escapeSql(cleanPin)
-      let users = await executeQuery(`SELECT * FROM users WHERE password_hash = '${escapedPin}' LIMIT 1;`)
+      const hashedPin = await hashPin(cleanPin)
+      let users = await executeQuery(`SELECT * FROM users WHERE (password_hash = '${escapeSql(hashedPin)}' OR password_hash = '${escapedPin}') LIMIT 1;`)
 
       if (users.length > 0) {
         const user = users[0]
@@ -435,9 +436,10 @@ export function usePOSController({
 
     try {
       const escapedPin = escapeSql(managerPin)
+      const hashedPin = await hashPin(managerPin)
       let managers = await executeQuery(`
         SELECT * FROM users
-        WHERE password_hash = '${escapedPin}' AND role = 'admin'
+        WHERE (password_hash = '${escapeSql(hashedPin)}' OR password_hash = '${escapedPin}') AND (role = 'admin' OR role = 'manager')
         LIMIT 1;
       `)
 
