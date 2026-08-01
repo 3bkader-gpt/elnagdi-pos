@@ -355,8 +355,11 @@ export function executeSql(sqlQuery) {
       }
       try {
         const trimmed = stdout.trim()
-        const lastBracket = trimmed.lastIndexOf('[')
-        const jsonPart = lastBracket !== -1 ? trimmed.slice(lastBracket) : trimmed
+        const firstBracket = trimmed.indexOf('[')
+        const lastBracket = trimmed.lastIndexOf(']')
+        const jsonPart = (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket)
+          ? trimmed.slice(firstBracket, lastBracket + 1)
+          : trimmed
         const result = jsonPart ? JSON.parse(jsonPart) : []
         resolve(result)
       } catch (e) {
