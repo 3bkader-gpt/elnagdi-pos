@@ -10,8 +10,8 @@ const sqlitePath = isDev
   ? path.join(process.cwd(), 'sqlite3.exe')
   : path.join(process.resourcesPath, 'sqlite3.exe')
 
-// Resolve the database path
-const devDbPath = path.join(process.cwd(), 'market_unified.db')
+// Resolve the database path (Testing Sandbox Instance)
+const devDbPath = path.join(process.cwd(), 'market_unified_testing.db')
 const prodDbPath = path.join(app.getPath('userData'), 'market_unified.db')
 export const dbPath = isDev ? devDbPath : prodDbPath
 
