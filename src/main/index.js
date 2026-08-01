@@ -57,9 +57,11 @@ function createWindow() {
     mainWindow.show()
   })
 
-  // Forward renderer console logs to terminal
+  // Forward renderer console logs (warnings and errors in production)
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log(`[RENDERER CONSOLE] ${message} (at ${sourceId}:${line})`)
+    if (!app.isPackaged || level >= 2) {
+      console.log(`[RENDERER CONSOLE] ${message} (at ${sourceId}:${line})`)
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
