@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { executeQuery } from '../lib/db'
-import { escapeSql, getNowStr, getFriendlyErrorMessage} from '../lib/utils'
+import { escapeSql, getNowStr, getFriendlyErrorMessage, round2 } from '../lib/utils'
 
 export function useSalesManager({ currentShift, fetchAdminData, triggerCustomAlert, triggerCustomConfirm }) {
   const [salesHistory, setSalesHistory] = useState([])
@@ -96,12 +96,19 @@ export function useSalesManager({ currentShift, fetchAdminData, triggerCustomAle
 
     triggerCustomConfirm(`هل أنت متأكد من رغبتك في إرجاع كمية ${qtyToReturn} من الصنف "${saleItem.name || saleItem.product_barcode}"؟`, async () => {
       try {
-        const freshSales = await executeQuery(`SELECT payment_type, client_id, id FROM sales WHERE id = ${saleItem.sale_id} LIMIT 1;`)
+        const freshSales = await executeQuery(`SELECT original_amount, total_amount, discount, payment_type, client_id, id FROM sales WHERE id = ${saleItem.sale_id} LIMIT 1;`)
         const saleData = freshSales?.[0]
         if (!saleData) {
           triggerCustomAlert('لم يتم العثور على الفاتورة!')
           return
         }
+
+        const originalAmt = parseFloat(saleData.original_amount) || (parseFloat(saleData.total_amount) + parseFloat(saleData.discount)) || 1
+        const currentDiscount = parseFloat(saleData.discount) || 0
+        const discountRatio = (currentDiscount > 0 && originalAmt > 0) ? (currentDiscount / originalAmt) : 0
+        const grossRefund = qtyToReturn * saleItem.unit_price
+        const discountShare = round2(grossRefund * discountRatio)
+        const netRefund = round2(grossRefund - discountShare)
 
         let sql = 'BEGIN TRANSACTION;\n'
         sql += `UPDATE products SET stock_qty = stock_qty + ${qtyToReturn} WHERE barcode = '${escapeSql(saleItem.product_barcode)}';\n`
@@ -111,18 +118,17 @@ export function useSalesManager({ currentShift, fetchAdminData, triggerCustomAle
         const newTotalPrice = (saleItem.quantity - newReturnedQty) * saleItem.unit_price
         sql += `UPDATE sale_items SET returned_qty = ${newReturnedQty}, total_price = ${newTotalPrice} WHERE id = ${saleItem.id};\n`
         
-        // Update sales total_amount
-        sql += `UPDATE sales SET total_amount = MAX(0, (SELECT IFNULL(SUM(total_price), 0) FROM sale_items WHERE sale_id = ${saleItem.sale_id}) - discount) WHERE id = ${saleItem.sale_id};\n`
+        // Update sales discount and total_amount
+        sql += `UPDATE sales SET discount = MAX(0, discount - ${discountShare}), total_amount = MAX(0, (SELECT IFNULL(SUM(total_price), 0) FROM sale_items WHERE sale_id = ${saleItem.sale_id}) - MAX(0, discount - ${discountShare})) WHERE id = ${saleItem.sale_id};\n`
         
         const shiftId = currentShift ? currentShift.id : 'NULL'
-        const refundAmount = qtyToReturn * saleItem.unit_price
         const nowStr = getNowStr()
         
         if (saleData.payment_type === 'آجل' && saleData.client_id) {
-          sql += `UPDATE clients SET debt_balance = debt_balance - ${refundAmount} WHERE id = ${saleData.client_id};\n`
-          sql += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${saleData.client_id}, 'payment', ${refundAmount}, 'إرجاع صنف من فاتورة آجل #${saleData.id}', '${nowStr}');\n`
+          sql += `UPDATE clients SET debt_balance = debt_balance - ${netRefund} WHERE id = ${saleData.client_id};\n`
+          sql += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${saleData.client_id}, 'payment', ${netRefund}, 'إرجاع صنف من فاتورة آجل #${saleData.id}', '${nowStr}');\n`
         } else {
-          sql += `INSERT INTO safe_ledger (shift_id, type, amount, description, timestamp) VALUES (${shiftId}, 'outflow', ${refundAmount}, 'مرتجع صنف ${escapeSql(saleItem.name || saleItem.product_barcode)} (${qtyToReturn}) للفاتورة #${saleItem.sale_id}', '${nowStr}');\n`
+          sql += `INSERT INTO safe_ledger (shift_id, type, amount, description, timestamp) VALUES (${shiftId}, 'outflow', ${netRefund}, 'مرتجع صنف ${escapeSql(saleItem.name || saleItem.product_barcode)} (${qtyToReturn}) للفاتورة #${saleItem.sale_id}', '${nowStr}');\n`
         }
         
         sql += 'COMMIT;\n'
