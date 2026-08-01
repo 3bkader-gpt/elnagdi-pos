@@ -64,7 +64,7 @@ const TillsManagerTab = ({
       const returnsRes = await executeQuery(`
         SELECT IFNULL(SUM(amount), 0) as total
         FROM safe_ledger
-        WHERE shift_id = ${shiftId} AND type = 'outflow' AND (description LIKE 'مرتجع%');
+        WHERE shift_id = ${shiftId} AND type = 'outflow' AND (description LIKE 'مرتجع%' OR description LIKE 'إرجاع%');
       `)
       const supplierRes = await executeQuery(`
         SELECT IFNULL(SUM(amount), 0) as total
@@ -74,7 +74,7 @@ const TillsManagerTab = ({
       const expensesRes = await executeQuery(`
         SELECT IFNULL(SUM(amount), 0) as total
         FROM safe_ledger
-        WHERE shift_id = ${shiftId} AND type = 'outflow' AND (description NOT LIKE 'مرتجع%' AND description NOT LIKE 'دفعة لمورد%' AND description NOT LIKE 'سداد دين مورد%');
+        WHERE shift_id = ${shiftId} AND type = 'outflow' AND (description NOT LIKE 'مرتجع%' AND description NOT LIKE 'إرجاع%' AND description NOT LIKE 'دفعة لمورد%' AND description NOT LIKE 'سداد دين مورد%');
       `)
 
       const salesTotal = parseFloat(salesRes[0]?.total) || 0
