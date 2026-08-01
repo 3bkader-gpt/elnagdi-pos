@@ -377,10 +377,11 @@ export function usePOSController({
 
       const lookupProduct = async (p) => {
         if (p.isWeighted) {
-          const code = p.barcode
+          const code = escapeSql(p.barcode)
+          const cleanCode = escapeSql(String(p.barcode || '').replace(/^0+/, ''))
           const products = await executeQuery(`
             SELECT * FROM products 
-            WHERE barcode = '${code}' OR barcode = '${code.replace(/^0+/, '')}' 
+            WHERE barcode = '${code}' OR barcode = '${cleanCode}' 
             LIMIT 1;
           `)
           return products.length > 0 ? { ...products[0], forcedQty: p.qty } : null
