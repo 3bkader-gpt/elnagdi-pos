@@ -192,3 +192,10 @@ export function round2(n) {
   const val = parseFloat(n) || 0
   return Math.round((val + Number.EPSILON) * 100) / 100
 }
+
+/**
+ * Formats a number to a money string (e.g., 1,234.56).
+ */
+export function formatMoney(amount) {
+  return (parseFloat(amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}

@@ -12,6 +12,10 @@ export function useShift() {
   // Shift Modals
   const [openShiftModal, setOpenShiftModal] = useState(false)
   const [startingCash, setStartingCash] = useState('0')
+  const [momknStartBalance, setMomknStartBalance] = useState('0')
+  const [momknStartCash, setMomknStartCash] = useState('0')
+  const [vfcashStartBalance, setVfcashStartBalance] = useState('0')
+  const [vfcashStartCash, setVfcashStartCash] = useState('0')
   const [closeShiftModal, setCloseShiftModal] = useState(false)
   const [actualEndCash, setActualEndCash] = useState('')
 
@@ -56,6 +60,14 @@ export function useShift() {
     setOpenShiftModal,
     startingCash,
     setStartingCash,
+    momknStartBalance,
+    setMomknStartBalance,
+    momknStartCash,
+    setMomknStartCash,
+    vfcashStartBalance,
+    setVfcashStartBalance,
+    vfcashStartCash,
+    setVfcashStartCash,
     closeShiftModal,
     setCloseShiftModal,
     actualEndCash,

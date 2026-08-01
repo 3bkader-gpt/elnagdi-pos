@@ -136,9 +136,9 @@ function CheckoutTerminal({
                           step="any"
                         />
                       </td>
-                      <td>{item.price.toFixed(2)} ج.م</td>
+                      <td>{item.price?.toFixed(2)} ج.م</td>
                       <td style={{ fontWeight: '700', color: 'var(--accent-emerald)' }}>
-                        {item.total.toFixed(2)} ج.م
+                        {item.total?.toFixed(2)} ج.م
                       </td>
                       <td>
                         <button className="delete-btn" onClick={() => triggerDeleteItem(item.barcode)}>
@@ -157,7 +157,7 @@ function CheckoutTerminal({
             <div className="summary-grid">
               <div className="summary-box">
                 <label>إجمالي الفاتورة</label>
-                <div className="summary-value">{cartSubtotal.toFixed(2)} ج.م</div>
+                <div className="summary-value">{cartSubtotal?.toFixed(2)} ج.م</div>
               </div>
               <div className="summary-box">
                 <label>الخصم المسموح به</label>
@@ -181,7 +181,7 @@ function CheckoutTerminal({
               </div>
               <div className="summary-box">
                 <label>المتبقي للعميل (الباقي)</label>
-                <div className="summary-value change">{changeRemaining.toFixed(2)} ج.م</div>
+                <div className="summary-value change">{changeRemaining?.toFixed(2)} ج.م</div>
               </div>
             </div>
 
@@ -232,11 +232,11 @@ function CheckoutTerminal({
                   <div>
                     {selectedClient.debt_balance < 0 ? (
                       <span style={{ color: 'var(--accent-emerald)', fontWeight: 'bold' }}>
-                        رصيد متوفر للعميل: {Math.abs(selectedClient.debt_balance).toFixed(2)} ج.م
+                        رصيد متوفر للعميل: {Math.abs(selectedClient.debt_balance)?.toFixed(2)} ج.م
                       </span>
                     ) : selectedClient.debt_balance > 0 ? (
                       <span style={{ color: 'var(--accent-rose)', fontWeight: 'bold' }}>
-                        مديونية سابقة على العميل: {selectedClient.debt_balance.toFixed(2)} ج.م
+                        مديونية سابقة على العميل: {selectedClient.debt_balance?.toFixed(2)} ج.م
                       </span>
                     ) : (
                       <span style={{ color: 'var(--text-muted)' }}>ليس لديه رصيد أو مديونية</span>
@@ -270,7 +270,7 @@ function CheckoutTerminal({
                       </button>
                       {appliedCredit > 0 && (
                         <span style={{ fontWeight: 'bold', color: 'var(--accent-emerald)' }}>
-                          تم خصم: {appliedCredit.toFixed(2)} ج.م
+                          تم خصم: {appliedCredit?.toFixed(2)} ج.م
                         </span>
                       )}
                     </div>
@@ -310,7 +310,7 @@ function CheckoutTerminal({
                     }}
                   />
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    (الحد الأقصى: {changeRemaining.toFixed(2)} ج.م)
+                    (الحد الأقصى: {changeRemaining?.toFixed(2)} ج.م)
                   </span>
                 </div>
               )}
@@ -348,7 +348,7 @@ function CheckoutTerminal({
                     >
                       <div style={{ fontWeight: 'bold' }}>{c.name}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {c.phone ? `📞 ${c.phone}` : ''} {c.debt_balance > 0 ? `| 💸 دين: ${c.debt_balance.toFixed(2)} ج.م` : ''} {c.points > 0 ? `| ⭐️ نقاط: ${c.points}` : ''}
+                        {c.phone ? `📞 ${c.phone}` : ''} {c.debt_balance > 0 ? `| 💸 دين: ${c.debt_balance?.toFixed(2)} ج.م` : ''} {c.points > 0 ? `| ⭐️ نقاط: ${c.points}` : ''}
                       </div>
                     </div>
                   ))}
@@ -401,7 +401,7 @@ function CheckoutTerminal({
               <div className="summary-box" style={{ flex: 1, alignItems: 'flex-end', justifyContent: 'center' }}>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>المبلغ الصافي المطلوب</div>
                 <div className="summary-value total" style={{ fontSize: '2.0rem', lineHeight: '1' }}>
-                  {cartTotal.toFixed(2)} ج.م
+                  {cartTotal?.toFixed(2)} ج.م
                 </div>
               </div>
 
@@ -435,9 +435,7 @@ function CheckoutTerminal({
                 className="scanner-input" 
                 ref={barcodeInputRef}
                 onFocus={(e) => {
-                  if (!scannerStateRef.current.isScanningActive) {
-                    e.target.select()
-                  }
+                  e.target.select()
                 }}
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
@@ -494,7 +492,7 @@ function CheckoutTerminal({
                       <span className="item-barcode">{item.barcode}</span>
                     </div>
                     <div className="item-price-stock">
-                      <span className="item-price">{item.retail_price.toFixed(2)} ج.م</span>
+                      <span className="item-price">{item.retail_price?.toFixed(2)} ج.م</span>
                       <span className={`item-stock ${item.stock_qty <= item.reorder_limit ? 'low-stock' : ''}`}>
                         مخزون: {item.stock_qty} {item.unit}
                         {item.stock_qty <= item.reorder_limit && ' ⚠️'}

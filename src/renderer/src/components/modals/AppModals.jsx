@@ -19,6 +19,14 @@ export default function AppModals({
   currentUser,
   startingCash,
   setStartingCash,
+  momknStartBalance,
+  setMomknStartBalance,
+  momknStartCash,
+  setMomknStartCash,
+  vfcashStartBalance,
+  setVfcashStartBalance,
+  vfcashStartCash,
+  setVfcashStartCash,
   handleStartShift,
 
   closeShiftModal,
@@ -103,11 +111,20 @@ export default function AppModals({
         currentUser={currentUser}
         startingCash={startingCash}
         setStartingCash={setStartingCash}
+        momknStartBalance={momknStartBalance}
+        setMomknStartBalance={setMomknStartBalance}
+        momknStartCash={momknStartCash}
+        setMomknStartCash={setMomknStartCash}
+        vfcashStartBalance={vfcashStartBalance}
+        setVfcashStartBalance={setVfcashStartBalance}
+        vfcashStartCash={vfcashStartCash}
+        setVfcashStartCash={setVfcashStartCash}
         handleStartShift={handleStartShift}
       />
 
       <CloseShiftModal
         closeShiftModal={closeShiftModal}
+        currentUser={currentUser}
         currentShift={currentShift}
         actualEndCash={actualEndCash}
         setActualEndCash={setActualEndCash}

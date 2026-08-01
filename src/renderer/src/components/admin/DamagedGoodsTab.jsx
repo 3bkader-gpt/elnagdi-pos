@@ -115,7 +115,7 @@ export default function DamagedGoodsTab({
           </div>
           <div className="admin-stat-info">
             <span className="admin-stat-label">إجمالي كمية الهوالك</span>
-            <span className="admin-stat-value">{totalItems.toFixed(2)} وحدة</span>
+            <span className="admin-stat-value">{totalItems?.toFixed(2)} وحدة</span>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               تم خصمها من رصيد المخزن الفعلي
             </span>
@@ -129,7 +129,7 @@ export default function DamagedGoodsTab({
           <div className="admin-stat-info">
             <span className="admin-stat-label">قيمة خسائر الهوالك</span>
             <span className="admin-stat-value" style={{ color: 'var(--accent-rose)' }}>
-              {totalLoss.toFixed(2)} ج.م
+              {totalLoss?.toFixed(2)} ج.م
             </span>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               مخصومة مباشرة من صافي الأرباح
@@ -179,8 +179,8 @@ export default function DamagedGoodsTab({
                         {item.reason}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 8px' }}>{item.cost_price.toFixed(2)} ج.م</td>
-                    <td style={{ padding: '12px 8px', fontWeight: 700 }}>{(item.quantity * item.cost_price).toFixed(2)} ج.م</td>
+                    <td style={{ padding: '12px 8px' }}>{item.cost_price?.toFixed(2)} ج.م</td>
+                    <td style={{ padding: '12px 8px', fontWeight: 700 }}>{(item.quantity * item.cost_price)?.toFixed(2)} ج.م</td>
                     <td style={{ padding: '12px 8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Calendar size={12} />

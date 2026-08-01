@@ -63,7 +63,7 @@ export default function AppHeader({
             رمز المرور
           </button>
         </div>
-        {currentShift ? (
+        {currentShift && currentShift.id ? (
           <>
             <div className="meta-item">
               <Key size={16} />

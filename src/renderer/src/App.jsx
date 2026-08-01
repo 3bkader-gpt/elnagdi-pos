@@ -51,6 +51,14 @@ function App() {
     setOpenShiftModal,
     startingCash,
     setStartingCash,
+    momknStartBalance,
+    setMomknStartBalance,
+    momknStartCash,
+    setMomknStartCash,
+    vfcashStartBalance,
+    setVfcashStartBalance,
+    vfcashStartCash,
+    setVfcashStartCash,
     closeShiftModal,
     setCloseShiftModal,
     actualEndCash,
@@ -192,6 +200,14 @@ function App() {
     setOpenShiftModal,
     startingCash,
     setStartingCash,
+    momknStartBalance,
+    setMomknStartBalance,
+    momknStartCash,
+    setMomknStartCash,
+    vfcashStartBalance,
+    setVfcashStartBalance,
+    vfcashStartCash,
+    setVfcashStartCash,
     closeShiftModal,
     setCloseShiftModal,
     actualEndCash,
@@ -271,6 +287,7 @@ function App() {
   const [showReasonModal, setShowReasonModal] = useState(false)
   const [auditDeficitReason, setAuditDeficitReason] = useState('')
   const [reasonAuditId, setReasonAuditId] = useState(null)
+  const [auditBreakdown, setAuditBreakdown] = useState(null)
   const lastActivityTime = useRef(Date.now())
   const lastAuditTime = useRef(Date.now())
 
@@ -292,20 +309,26 @@ function App() {
   const triggerAuditCheck = async () => {
     if (!currentShift) return
     try {
-      const salesRes = await executeQuery(`SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0), total_amount)), 0) as total FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي';`)
+      const grossRes = await executeQuery(`SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي';`)
+      const debtRes = await executeQuery(`SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'آجل';`)
       const repayRes = await executeQuery(`SELECT IFNULL(SUM(amount), 0) as total FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'inflow';`)
       const refundRes = await executeQuery(`SELECT IFNULL(SUM(amount), 0) as total FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow';`)
-      const salesTotal = parseFloat(salesRes[0]?.total) || 0
+      
+      const grossSales = parseFloat(grossRes[0]?.total) || 0
+      const debtSales = parseFloat(debtRes[0]?.total) || 0
       const repayTotal = parseFloat(repayRes[0]?.total) || 0
       const refundTotal = parseFloat(refundRes[0]?.total) || 0
+      const initialCash = parseFloat(currentShift.initial_cash) || 0
       
-      const expected = currentShift.initial_cash + salesTotal + repayTotal - refundTotal
+      const expected = initialCash + grossSales + repayTotal - refundTotal
       setAuditExpectedCash(expected)
+      setAuditBreakdown({ grossSales, debtSales, refunds: refundTotal, repay: repayTotal, initialCash })
       setAuditActualCash('')
       setAuditNotes('')
       setShowAuditModal(true)
     } catch (e) {
       console.error('Failed to get expected cash:', e)
+      triggerCustomAlert('خطأ برمجي أثناء الجرد: ' + (e.message || e))
     }
   }
 
@@ -360,7 +383,7 @@ function App() {
 
       if (diff < 0) {
         triggerCustomConfirm(
-          `تم حفظ جرد الدرج الدوري بنجاح. تنبيه: يوجد عجز بقيمة ${diff.toFixed(2)} ج.م. هل تريد كتابة سبب أو تفاصيل لهذا العجز؟ (اختياري)`,
+          `تم حفظ جرد الدرج الدوري بنجاح. تنبيه: يوجد عجز بقيمة ${diff?.toFixed(2)} ج.م. هل تريد كتابة سبب أو تفاصيل لهذا العجز؟ (اختياري)`,
           () => {
             setAuditDeficitReason('')
             setReasonAuditId(auditId)
@@ -466,6 +489,9 @@ function App() {
       {currentView === 'admin' && (currentUser?.role === 'admin' || currentUser?.role === 'manager') ? (
         <AdminDashboard
           currentUser={currentUser}
+          currentShift={currentShift}
+          triggerCustomAlert={triggerCustomAlert}
+          triggerCustomConfirm={triggerCustomConfirm}
           adminTab={adminTab}
           setAdminTab={setAdminTab}
           adminSearchInputRef={adminSearchInputRef}
@@ -529,6 +555,14 @@ function App() {
         currentUser={currentUser}
         startingCash={startingCash}
         setStartingCash={setStartingCash}
+        momknStartBalance={momknStartBalance}
+        setMomknStartBalance={setMomknStartBalance}
+        momknStartCash={momknStartCash}
+        setMomknStartCash={setMomknStartCash}
+        vfcashStartBalance={vfcashStartBalance}
+        setVfcashStartBalance={setVfcashStartBalance}
+        vfcashStartCash={vfcashStartCash}
+        setVfcashStartCash={setVfcashStartCash}
         handleStartShift={handleStartShift}
         closeShiftModal={closeShiftModal}
         currentShift={currentShift}
@@ -559,56 +593,139 @@ function App() {
 
       {/* Periodic Safe Audit Dialog Modal */}
       {showAuditModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glassmorphism-card" style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h2>جرد الخزنة الدوري 🕒</h2>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>تأكيد سلامة درج الكاشير للشيفت رقم #{currentShift.id}</span>
+        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+          <div 
+            className="modal-content" 
+            style={{ 
+              maxWidth: 480, 
+              width: '95%', 
+              backgroundColor: '#ffffff', 
+              color: '#111827',
+              borderRadius: '12px',
+              padding: '20px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            }}
+          >
+            <div className="modal-header" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '10px', marginBottom: '12px' }}>
+              <h2 style={{ fontSize: '1.25rem', color: '#111827', margin: 0, textAlign: 'center' }}>🕒 جرد درج كاشير السوبر ماركت الدوري</h2>
+              <p style={{ margin: '4px 0 0 0', color: '#6b7280', fontSize: '0.82rem', textAlign: 'center' }}>
+                مطابقة مبيعات الكاشير للوردية رقم #{currentShift?.id}
+              </p>
             </div>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <p style={{ textAlign: 'center', fontSize: '1.05rem' }}>
-                مرحباً <strong>{currentUser?.username}</strong>، يرجى كتابة المبلغ النقدي الفعلي المتواجد في الدرج حالياً لتفادي أي عجز في نهاية الشيفت.
+            
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <p style={{ textAlign: 'center', fontSize: '0.92rem', color: '#374151', margin: 0 }}>
+                مرحباً <strong>{currentUser?.username}</strong>، يرجى مطابقة وتأكيد كاش مبيعات السوبرماركت بالدرج لتفادي أي عجز بالوردية.
               </p>
               
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '15px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
-                <span style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
-                  يرجى عد النقود بالدرج بعناية وكتابة القيمة الإجمالية بالأسفل للتحقق ومطابقة الحسابات.
+              <div style={{ background: '#ecfdf5', padding: '12px', borderRadius: '8px', border: '1px solid #a7f3d0' }}>
+                <div style={{ fontSize: '0.84rem', color: '#374151', marginBottom: '8px', background: '#ffffff', padding: '8px 10px', borderRadius: '6px', border: '1px dashed #6ee7b7' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                    <span>إجمالي مبيعات الفواتير:</span>
+                    <strong>{(auditBreakdown?.grossSales || 0).toFixed(2)} ج.م</strong>
+                  </div>
+                  {(auditBreakdown?.debtSales || 0) > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#d97706', marginBottom: '3px' }}>
+                      <span>- مبيعات آجل (ديون لم تدخل الدرج):</span>
+                      <strong>-{(auditBreakdown?.debtSales || 0).toFixed(2)} ج.م</strong>
+                    </div>
+                  )}
+                  {(auditBreakdown?.refunds || 0) > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626', marginBottom: '3px' }}>
+                      <span>- مرتجع مبيعات / مصروفات (خارج):</span>
+                      <strong>-{(auditBreakdown?.refunds || 0).toFixed(2)} ج.م</strong>
+                    </div>
+                  )}
+                  {(auditBreakdown?.repay || 0) > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563eb', marginBottom: '3px' }}>
+                      <span>+ تحصيل ديون عملاء (كاش داخل):</span>
+                      <strong>+{(auditBreakdown?.repay || 0).toFixed(2)} ج.م</strong>
+                    </div>
+                  )}
+                  {(auditBreakdown?.initialCash || 0) > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563eb', marginBottom: '3px' }}>
+                      <span>+ كاش الفكة الافتتاحي بالدرج:</span>
+                      <strong>+{(auditBreakdown?.initialCash || 0).toFixed(2)} ج.م</strong>
+                    </div>
+                  )}
+                </div>
+
+                <span style={{ fontSize: '0.9rem', color: '#047857', display: 'block', fontWeight: 'bold', textAlign: 'center' }}>
+                  = صافي الكاش الورق المتوقع بالدرج: {(auditExpectedCash || 0).toFixed(2)} ج.م
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setAuditActualCash((auditExpectedCash || 0).toFixed(2))}
+                  style={{
+                    marginTop: '8px',
+                    width: '100%',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    border: '1px solid #059669',
+                    background: '#ffffff',
+                    color: '#059669',
+                    fontWeight: 'bold',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ← تعبئة صافي الكاش المتوقع تلقائياً ({(auditExpectedCash || 0).toFixed(2)} ج.م)
+                </button>
               </div>
 
-              <div className="form-group">
-                <label>المبلغ النقدي الفعلي في الدرج حالياً (ج.م) *</label>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.88rem', fontWeight: 'bold', color: '#111827', display: 'block', marginBottom: '4px' }}>
+                  المبلغ النقدي الفعلي في الدرج حالياً (ج.م) *
+                </label>
                 <input 
                   type="number" 
-                  className="form-control" 
-                  placeholder="أدخل المبلغ هنا..."
+                  className="form-input" 
+                  placeholder="0.00"
                   value={auditActualCash}
                   onChange={(e) => setAuditActualCash(e.target.value)}
-                  style={{ fontSize: '1.4rem', textAlign: 'center', fontWeight: 'bold' }}
+                  style={{
+                    fontSize: '1.4rem',
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    backgroundColor: '#ffffff',
+                    color: '#111827',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    padding: '8px'
+                  }}
                   autoFocus
                 />
               </div>
 
-              <div className="form-group">
-                <label>ملاحظات الجرد (اختياري)</label>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: '0.82rem', color: '#4b5563', display: 'block', marginBottom: '4px' }}>ملاحظات الجرد (اختياري)</label>
                 <textarea 
-                  className="form-control" 
-                  placeholder="مثال: يوجد عملات فكة معينة، أو ملاحظة خاصة بالدرج..."
+                  className="form-input" 
+                  placeholder="مثال: تم الجرد الدوري والدرج مطابق..."
                   value={auditNotes}
                   onChange={(e) => setAuditNotes(e.target.value)}
                   rows={2}
+                  style={{
+                    fontSize: '0.85rem',
+                    backgroundColor: '#ffffff',
+                    color: '#111827',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    padding: '6px'
+                  }}
                 />
               </div>
             </div>
-            <div className="modal-footer" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={submitAudit}>
+            
+            <div className="modal-footer" style={{ display: 'flex', gap: '8px', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid #e5e7eb' }}>
+              <button className="btn btn-primary" style={{ flex: 1, padding: '10px' }} onClick={submitAudit}>
                 تأكيد وحفظ الجرد
               </button>
-              <button className="btn btn-secondary" onClick={snoozeAudit}>
+              <button className="btn btn-secondary" style={{ padding: '10px' }} onClick={snoozeAudit}>
                 تأجيل (5 دقائق)
               </button>
-              <button className="btn btn-secondary" style={{ color: 'var(--accent-rose)', borderColor: 'var(--accent-rose)' }} onClick={skipAudit}>
-                تخطي الجرد
+              <button className="btn btn-secondary" style={{ color: '#ef4444', borderColor: '#fca5a5', padding: '10px' }} onClick={skipAudit}>
+                تخطي
               </button>
             </div>
           </div>

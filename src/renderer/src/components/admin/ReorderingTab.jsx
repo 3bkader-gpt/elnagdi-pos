@@ -119,7 +119,7 @@ export default function ReorderingTab() {
       text += `-----------------------------------\n`
     })
     text += `إجمالي الأصناف: ${totalItemsToOrder} صنف\n`
-    text += `إجمالي التكلفة التقديرية: ${totalEstimatedCost.toFixed(2)} ج.م\n`
+    text += `إجمالي التكلفة التقديرية: ${totalEstimatedCost?.toFixed(2)} ج.م\n`
 
     navigator.clipboard.writeText(text)
     setCopied(true)
@@ -250,7 +250,7 @@ export default function ReorderingTab() {
           <div className="admin-stat-info">
             <span className="admin-stat-label">التكلفة التقديرية للشراء</span>
             <span className="admin-stat-value" style={{ color: 'var(--accent-emerald)' }}>
-              {totalEstimatedCost.toFixed(2)} ج.م
+              {totalEstimatedCost?.toFixed(2)} ج.م
             </span>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               محسوبة بناءً على سعر تكلفة الجملة
@@ -376,10 +376,10 @@ export default function ReorderingTab() {
                         {isLow && <span style={{ fontSize: '0.7rem', marginRight: '6px', background: 'rgba(220, 38, 38, 0.1)', color: 'var(--accent-rose)', padding: '2px 6px', borderRadius: '4px' }}>ناقص</span>}
                       </td>
                       <td style={{ padding: '12px 8px' }}>{row.reorder_limit} {row.unit}</td>
-                      <td style={{ padding: '12px 8px' }}>{row.sold30.toFixed(1)}</td>
+                      <td style={{ padding: '12px 8px' }}>{row.sold30?.toFixed(1)}</td>
                       <td style={{ padding: '12px 8px', fontWeight: 700, color: 'var(--accent-emerald)' }}>{row.recommended} {row.unit}</td>
                       <td style={{ padding: '12px 8px' }}>{(row.cost || 0).toFixed(2)} ج.م</td>
-                      <td style={{ padding: '12px 8px', fontWeight: 700 }}>{row.estCost.toFixed(2)} ج.م</td>
+                      <td style={{ padding: '12px 8px', fontWeight: 700 }}>{row.estCost?.toFixed(2)} ج.م</td>
                     </tr>
                   )
                 })}

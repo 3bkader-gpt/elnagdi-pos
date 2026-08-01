@@ -134,10 +134,11 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
         })).sort((a, b) => b.totalSpent - a.totalSpent)
 
         let reportData = []
-        const clientIds = sortedClients.map(c => c.client_id)
+        const clientIds = sortedClients.map(c => c.client_id).filter(id => Boolean(id) && !isNaN(id))
         if (clientIds.length > 0) {
           const detailsList = await executeQuery(`SELECT id, name, phone FROM clients WHERE id IN (${clientIds.join(',')});`)
-          const clientMap = Object.fromEntries(detailsList.map(c => [c.id, c]))
+          const validDetails = Array.isArray(detailsList) ? detailsList.filter(c => c && c.id) : []
+          const clientMap = Object.fromEntries(validDetails.map(c => [c.id, c]))
           reportData = sortedClients.map(item => {
             const detail = clientMap[item.client_id]
             return {

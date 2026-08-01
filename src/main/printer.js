@@ -59,6 +59,7 @@ function buildReceiptText(html, storeName = 'سوبر ماركت النجدي', 
   const client  = get(html, /العميل:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
   const phone   = get(html, /هاتف العميل:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
   const address = get(html, /العنوان:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
+  const title   = get(html, /نوع التقرير:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/) || 'فاتورة بيع'
 
   const total   = get(html, /الإجمالي:<\/span>\s*<span>([^<]+)/)
   const disc    = get(html, /خصم الفاتورة:<\/span>\s*<span>([^<]+)/)
@@ -77,7 +78,7 @@ function buildReceiptText(html, storeName = 'سوبر ماركت النجدي', 
   const lines = [
     `[C]${storeName}`,
     `[C]${branchName}`,
-    `[C]فاتورة بيع`,
+    `[C]${title}`,
     `[C]رقم العملية : ${saleId}`,
     `------------------------------------------------`,
     ...(dateTimeLine ? [dateTimeLine] : []),
@@ -90,12 +91,13 @@ function buildReceiptText(html, storeName = 'سوبر ماركت النجدي', 
     `------------------------------------------------`,
     `الصنف|ك|سعر|إجمالي`,
     `------------------------------------------------`,
+    `------------------------------------------------`,
     ...items.map(item => `${item.name}|${item.qty}|${item.price || ''}|${item.total}`),
     `------------------------------------------------`,
-    ...(total  ? [`الإجمالي|${total}`] : []),
-    ...(disc   ? [`خصم الفاتورة|- ${disc}`] : []),
-    ...(paid   ? [`المدفوع|${paid}`] : []),
-    ...(change ? [`الباقي للعميل|${change}`] : []),
+    ...(total  ? [title.includes('تقرير') ? `الرصيد المتوقع|${total}` : `الإجمالي|${total}`] : []),
+    ...(disc   ? [title.includes('تقرير') ? `إجمالي العمولات|${disc}` : `خصم الفاتورة|- ${disc}`] : []),
+    ...(paid   ? [title.includes('تقرير') ? `صافي الكاش|${paid}` : `المدفوع|${paid}`] : []),
+    ...(change ? [title.includes('تقرير') ? `الرصيد الافتتاحي|${change}` : `الباقي للعميل|${change}`] : []),
     `------------------------------------------------`,
     `[C]شكراً لتسوقكم معنا!`,
     `[C]- ${storeName} -`,

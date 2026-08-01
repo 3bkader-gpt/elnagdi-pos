@@ -76,7 +76,7 @@ export function useProductsManager({ fetchAdminData, setToastMessage, triggerCus
 
     if (retail < cost) {
       triggerCustomConfirm(
-        `⚠️ تحذير: سعر البيع (${retail.toFixed(2)} ج.م) أقل من سعر التكلفة (${cost.toFixed(2)} ج.م)، مما يعني حدوث خسارة في هذا المنتج!\n\nهل أنت متأكد من رغبتك في الحفظ مع ذلك؟`,
+        `⚠️ تحذير: سعر البيع (${retail?.toFixed(2)} ج.م) أقل من سعر التكلفة (${cost?.toFixed(2)} ج.م)، مما يعني حدوث خسارة في هذا المنتج!\n\nهل أنت متأكد من رغبتك في الحفظ مع ذلك؟`,
         saveProduct
       )
     } else {
@@ -120,7 +120,7 @@ export function useProductsManager({ fetchAdminData, setToastMessage, triggerCus
 
     if (retail < cost) {
       triggerCustomConfirm(
-        `⚠️ تحذير: سعر البيع (${retail.toFixed(2)} ج.م) أقل من سعر التكلفة (${cost.toFixed(2)} ج.م)، مما يعني حدوث خسارة في هذا المنتج!\n\nهل أنت متأكد من رغبتك في الحفظ مع ذلك؟`,
+        `⚠️ تحذير: سعر البيع (${retail?.toFixed(2)} ج.م) أقل من سعر التكلفة (${cost?.toFixed(2)} ج.م)، مما يعني حدوث خسارة في هذا المنتج!\n\nهل أنت متأكد من رغبتك في الحفظ مع ذلك؟`,
         saveProduct
       )
     } else {

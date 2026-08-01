@@ -94,7 +94,7 @@ export default function ExpensesTab({
                     </span>
                   </td>
                   <td style={{ fontWeight: 'bold', color: 'var(--accent-rose)' }}>
-                    -{exp.amount.toFixed(2)} ج.م
+                    -{exp.amount?.toFixed(2)} ج.م
                   </td>
                   <td>{exp.description}</td>
                   <td style={{ textAlign: 'center' }}>

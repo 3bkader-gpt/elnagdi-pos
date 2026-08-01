@@ -176,6 +176,53 @@ export async function initializeDatabase() {
         details TEXT
       );
     `)
+
+    // --- Momkn Transactions Table ---
+    await executeSql(`
+      CREATE TABLE IF NOT EXISTS momkn_transactions (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        shift_id        INTEGER NOT NULL,
+        timestamp       TEXT NOT NULL,
+        operation_type  TEXT NOT NULL,
+        description     TEXT,
+        digital_impact  REAL NOT NULL,
+        cash_impact     REAL NOT NULL,
+        commission      REAL DEFAULT 0.0,
+        notes           TEXT,
+        FOREIGN KEY(shift_id) REFERENCES shifts(id)
+      );
+    `)
+
+    // --- Mobile Money / Wallets Transactions Table ---
+    await executeSql(`
+      CREATE TABLE IF NOT EXISTS mobile_money_transactions (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        shift_id         INTEGER NOT NULL,
+        timestamp        TEXT NOT NULL,
+        platform         TEXT NOT NULL,
+        operation_type   TEXT NOT NULL,
+        digital_impact   REAL NOT NULL,
+        cash_impact      REAL NOT NULL,
+        commission       REAL DEFAULT 0.0,
+        recipient_name   TEXT,
+        phone_or_account TEXT,
+        notes            TEXT,
+        FOREIGN KEY(shift_id) REFERENCES shifts(id)
+      );
+    `)
+
+    await executeSql(`
+      CREATE TABLE IF NOT EXISTS safe_ledger (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shift_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        amount REAL NOT NULL,
+        description TEXT,
+        timestamp TEXT NOT NULL,
+        FOREIGN KEY(shift_id) REFERENCES shifts(id)
+      );
+    `)
+
     await executeSql(`
       INSERT OR IGNORE INTO settings (key, value) VALUES ('store_name', 'سوبر ماركت النجدي');
     `)
@@ -189,6 +236,26 @@ export async function initializeDatabase() {
     try {
       await executeSql(`ALTER TABLE sales ADD COLUMN client_id INTEGER REFERENCES clients(id);`)
       console.log('[DB] Migrated sales table: added client_id column.')
+    } catch (e) { /* Ignore if column already exists */ }
+
+    try {
+      await executeSql(`ALTER TABLE shifts ADD COLUMN momkn_start_balance REAL DEFAULT 0.0;`)
+      console.log('[DB] Migrated shifts table: added momkn_start_balance column.')
+    } catch (e) { /* Ignore if column already exists */ }
+
+    try {
+      await executeSql(`ALTER TABLE shifts ADD COLUMN momkn_start_cash REAL DEFAULT 0.0;`)
+      console.log('[DB] Migrated shifts table: added momkn_start_cash column.')
+    } catch (e) { /* Ignore if column already exists */ }
+
+    try {
+      await executeSql(`ALTER TABLE shifts ADD COLUMN vfcash_start_balance REAL DEFAULT 0.0;`)
+      console.log('[DB] Migrated shifts table: added vfcash_start_balance column.')
+    } catch (e) { /* Ignore if column already exists */ }
+
+    try {
+      await executeSql(`ALTER TABLE shifts ADD COLUMN vfcash_start_cash REAL DEFAULT 0.0;`)
+      console.log('[DB] Migrated shifts table: added vfcash_start_cash column.')
     } catch (e) { /* Ignore if column already exists */ }
 
     try {
@@ -288,15 +355,18 @@ export function executeSql(sqlQuery) {
       }
       try {
         const trimmed = stdout.trim()
-        const result = trimmed ? JSON.parse(trimmed) : []
+        const lastBracket = trimmed.lastIndexOf('[')
+        const jsonPart = lastBracket !== -1 ? trimmed.slice(lastBracket) : trimmed
+        const result = jsonPart ? JSON.parse(jsonPart) : []
         resolve(result)
       } catch (e) {
-        resolve([{ rawOutput: stdout.trim() }])
+        console.error('SQL Execution JSON Parse Error:', e.message, 'Raw stdout:', stdout)
+        reject(e)
       }
     })
 
-    // Prepend PRAGMA foreign_keys = ON; to enforce referential integrity for every spawned query!
-    const queryToRun = `PRAGMA foreign_keys = ON;\n${sqlQuery}`
+    // Prepend PRAGMA foreign_keys = ON and set busy_timeout to 10s to prevent 'database is locked' errors under concurrency
+    const queryToRun = `PRAGMA foreign_keys = ON;\nPRAGMA busy_timeout = 10000;\n${sqlQuery}`
 
     // Write SQL command to stdin and close the stream
     child.stdin.write(queryToRun)

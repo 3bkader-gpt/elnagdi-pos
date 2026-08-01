@@ -111,7 +111,7 @@ function ClosedShiftsTable({ shiftsHistory }) {
                       <td>{(s.expected_end_cash || 0).toFixed(2)} ج.م</td>
                       <td style={{ fontWeight: 'bold' }}>{(s.actual_end_cash || 0).toFixed(2)} ج.م</td>
                       <td style={{ fontWeight: 'bold', color: s.difference < 0 ? 'var(--accent-rose)' : s.difference > 0 ? 'var(--accent-emerald)' : 'inherit' }}>
-                        {s.difference > 0 ? `+${s.difference.toFixed(2)}` : (s.difference || 0).toFixed(2)} ج.م
+                        {s.difference > 0 ? `+${s.difference?.toFixed(2)}` : (s.difference || 0).toFixed(2)} ج.م
                       </td>
                     </tr>
                   </React.Fragment>
@@ -171,7 +171,7 @@ function AuditsTable({ shiftAudits }) {
                   <td>{(a.expected_cash || 0).toFixed(2)} ج.م</td>
                   <td style={{ fontWeight: 'bold' }}>{(a.actual_cash || 0).toFixed(2)} ج.م</td>
                   <td style={{ fontWeight: 'bold', color: a.difference < 0 ? 'var(--accent-rose)' : a.difference > 0 ? 'var(--accent-orange)' : 'var(--accent-emerald)' }}>
-                    {a.difference > 0 ? `+${a.difference.toFixed(2)}` : (a.difference || 0).toFixed(2)} ج.م
+                    {a.difference > 0 ? `+${a.difference?.toFixed(2)}` : (a.difference || 0).toFixed(2)} ج.م
                   </td>
                   <td style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{a.notes || '—'}</td>
                 </tr>

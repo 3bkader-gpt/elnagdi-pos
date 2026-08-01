@@ -98,12 +98,31 @@ export function useBarcode({
             // New scan starting. Focus and overwrite.
             // If previously active element was an input, remove the scanner's first character from it
             if (prevActive && (prevActive.tagName === 'INPUT' || prevActive.tagName === 'TEXTAREA')) {
-              const val = prevActive.value
-              if (val.length > 0) {
-                prevActive.value = val.substring(0, val.length - 1)
-                const inputEvent = new Event('input', { bubbles: true })
-                prevActive.dispatchEvent(inputEvent)
+              const charToRemove = prevChar
+              const cleanField = () => {
+                const val = prevActive.value
+                if (val && val.length > 0) {
+                  const prototype = prevActive.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype
+                  const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
+                  let newVal = val
+                  if (charToRemove && val.endsWith(charToRemove)) {
+                    newVal = val.substring(0, val.length - charToRemove.length)
+                  } else {
+                    newVal = val.substring(0, val.length - 1)
+                  }
+                  
+                  if (nativeSetter) {
+                    nativeSetter.call(prevActive, newVal)
+                  } else {
+                    prevActive.value = newVal
+                  }
+                  
+                  const inputEvent = new Event('input', { bubbles: true })
+                  prevActive.dispatchEvent(inputEvent)
+                }
               }
+              cleanField()
+              setTimeout(cleanField, 10)
             }
 
             // Set the first two characters

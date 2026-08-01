@@ -16,9 +16,13 @@ import DamagedGoodsTab from './DamagedGoodsTab'
 import AdvancedStatsTab from './AdvancedStatsTab'
 import CashierPerformanceTab from './CashierPerformanceTab'
 import LogsTab from './LogsTab'
+import TillsManagerTab from './TillsManagerTab'
 
 export default function AdminDashboard({
   currentUser,
+  currentShift,
+  triggerCustomAlert,
+  triggerCustomConfirm,
   adminTab,
   setAdminTab,
   
@@ -336,7 +340,17 @@ export default function AdminDashboard({
       action: () => {
         setAdminTab('logs')
       }
-    }
+    },
+    ...(currentUser?.username !== 'سيف فايز' ? [{
+      id: 'tills',
+      title: 'الأدراج والتحويلات',
+      desc: 'إدارة أجرية السوبر ماركت، مكنة ممكن، والمحافظ والتحويلات الرقمية للوردية.',
+      icon: '💳',
+      color: 'linear-gradient(135deg, #10b981, #3b82f6)',
+      action: () => {
+        setAdminTab('tills')
+      }
+    }] : [])
   ]
 
   return (
@@ -367,6 +381,7 @@ export default function AdminDashboard({
               {adminTab === 'advanced-stats' && '📈 التقارير والتحليلات المتقدمة'}
               {adminTab === 'cashier-performance' && '⭐ تقييم أداء الكاشيرات'}
               {adminTab === 'logs' && '📋 سجل العمليات والأنشطة (Event Log)'}
+              {adminTab === 'tills' && '💳 الأدراج والتحويلات الرقمية'}
             </h2>
           </div>
         )}
@@ -574,6 +589,15 @@ export default function AdminDashboard({
 
       {adminTab === 'logs' && (
         <LogsTab />
+      )}
+
+      {adminTab === 'tills' && (
+        <TillsManagerTab
+          currentUser={currentUser}
+          currentShift={currentShift}
+          triggerCustomAlert={triggerCustomAlert}
+          triggerCustomConfirm={triggerCustomConfirm}
+        />
       )}
     </div>
   )

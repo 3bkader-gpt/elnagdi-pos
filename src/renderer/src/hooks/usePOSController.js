@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { escapeSql, normalizeDigits, playSound, getNowStr, getFriendlyErrorMessage} from '../lib/utils'
 import { executeQuery } from '../lib/db'
-import { generateReceiptHtml, generateReprintHtml } from '../lib/printTemplates'
+import { generateReceiptHtml, generateReprintHtml, generateGrandShiftReportHtml } from '../lib/printTemplates'
 import { logEvent } from '../lib/dao/logs.dao'
 
 /**
@@ -20,6 +20,14 @@ export function usePOSController({
   setOpenShiftModal,
   startingCash,
   setStartingCash,
+  momknStartBalance,
+  setMomknStartBalance,
+  momknStartCash,
+  setMomknStartCash,
+  vfcashStartBalance,
+  setVfcashStartBalance,
+  vfcashStartCash,
+  setVfcashStartCash,
   closeShiftModal,
   setCloseShiftModal,
   actualEndCash,
@@ -118,9 +126,9 @@ export function usePOSController({
         setCurrentUser(user)
         setPin('')
 
-        console.log('[AUTH FLOW] Checking for active open shift...')
+        console.log('[AUTH FLOW] Checking for active open shift for user:', user.username)
         const openShifts = await executeQuery(`
-          SELECT * FROM shifts WHERE status = 'open' LIMIT 1;
+          SELECT * FROM shifts WHERE user_id = ${user.id} AND status = 'open' LIMIT 1;
         `)
 
         console.log(`[AUTH FLOW] Open shifts query complete. Found: ${openShifts.length}`)
@@ -133,19 +141,10 @@ export function usePOSController({
           setCurrentShift(openShifts[0])
           playSound('success')
         } else {
-          if (user.role === 'cashier') {
-            console.log('[AUTH FLOW] Cashier logging in without shift. Prompting to open shift with prefilled handoff cash.')
-            try {
-              // نظام التوريد الجديد: العهدة دايمًا 200 ج.م
-              setStartingCash('200')
-            } catch (e) {
-              setStartingCash('200')
-            }
-            setOpenShiftModal(true)
-          } else {
-            console.log('[AUTH FLOW] Admin/Manager logging in without shift. Bypassing shift prompt.')
-            playSound('success')
-          }
+          console.log('[AUTH FLOW] No open shift found. Prompting to open a shift.')
+          setCurrentShift(null)
+          try { setStartingCash('200') } catch(e) {}
+          setOpenShiftModal(true)
         }
       } else {
         console.warn(`[AUTH FLOW] Authentication failed. No user found with password_hash = '${escapedPin}'`)
@@ -163,25 +162,35 @@ export function usePOSController({
   // Open Shift
   const handleStartShift = async () => {
     const startingCashNum = parseFloat(startingCash) || 0
-    if (startingCashNum < 0) return
+    const momknStartNum = parseFloat(momknStartBalance) || 0
+    const momknCashNum = parseFloat(momknStartCash) || 0
+    const vfcashStartNum = parseFloat(vfcashStartBalance) || 0
+    const vfcashCashNum = parseFloat(vfcashStartCash) || 0
+    if (startingCashNum < 0 || momknStartNum < 0 || momknCashNum < 0 || vfcashStartNum < 0 || vfcashCashNum < 0) return
 
     try {
+      if (!currentUser || !currentUser.id) {
+        triggerCustomAlert('يرجى تسجيل الدخول أولاً برمز المرور الخاص بك لفتح الوردية.')
+        return
+      }
+
+      const activeUser = currentUser
       const nowStr = getNowStr()
       await executeQuery(`
-        INSERT INTO shifts (user_id, start_time, initial_cash, expected_end_cash, actual_end_cash, status)
-        VALUES (${currentUser.id}, '${nowStr}', ${startingCashNum}, ${startingCashNum}, 0, 'open');
+        INSERT INTO shifts (user_id, start_time, initial_cash, expected_end_cash, actual_end_cash, status, momkn_start_balance, momkn_start_cash, vfcash_start_balance, vfcash_start_cash)
+        VALUES (${activeUser.id}, '${nowStr}', ${startingCashNum}, ${startingCashNum}, 0, 'open', ${momknStartNum}, ${momknCashNum}, ${vfcashStartNum}, ${vfcashCashNum});
       `)
 
       const latestShift = await executeQuery(`
-        SELECT * FROM shifts WHERE user_id = ${currentUser.id} AND status = 'open' ORDER BY id DESC LIMIT 1;
+        SELECT * FROM shifts WHERE user_id = ${activeUser.id} AND status = 'open' ORDER BY id DESC LIMIT 1;
       `)
 
       if (latestShift.length > 0) {
         await logEvent({
-          userId: currentUser.id,
-          username: currentUser.username,
+          userId: activeUser.id,
+          username: activeUser.username,
           actionType: 'shift_open',
-          description: `فتح وردية جديدة بمبلغ بداية ${startingCashNum.toFixed(2)} ج.م`
+          description: `فتح وردية جديدة بمبلغ بداية ${startingCashNum?.toFixed(2)} ج.م`
         })
         setCurrentShift(latestShift[0])
         setOpenShiftModal(false)
@@ -191,11 +200,12 @@ export function usePOSController({
     } catch (e) {
       console.error('Failed to open shift:', e)
       playSound('error')
+      triggerCustomAlert('فشل فتح الوردية: ' + e.message)
     }
   }
 
   // Close Active Shift
-  const handleConfirmCloseShift = async () => {
+  const handleConfirmCloseShift = async (aggregatedData) => {
     const actual = parseFloat(actualEndCash) || 0
     if (isNaN(actual) || actual < 0) {
       triggerCustomAlert('الرجاء إدخال مبلغ صحيح.')
@@ -203,17 +213,36 @@ export function usePOSController({
     }
 
     try {
-      const combinedRes = await executeQuery(`
-        SELECT 
-          (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0), total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي') as salesTotal,
-          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'inflow') as repayTotal,
-          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow') as refundTotal;
-      `)
+      let d = aggregatedData
+      if (!d) {
+        const combinedRes = await executeQuery(`
+          SELECT 
+            (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0), total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي') as salesTotal,
+            (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'inflow') as repayTotal,
+            (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow') as refundTotal,
+            (SELECT IFNULL(SUM(cash_impact), 0) FROM momkn_transactions WHERE shift_id = ${currentShift.id}) as momknCashImpact,
+            (SELECT IFNULL(SUM(cash_impact), 0) FROM mobile_money_transactions WHERE shift_id = ${currentShift.id}) as mobileMoneyCashImpact;
+        `)
+        d = {
+          initialCash: currentShift.initial_cash || 0,
+          cashSales: parseFloat(combinedRes[0]?.salesTotal) || 0,
+          inflow: parseFloat(combinedRes[0]?.repayTotal) || 0,
+          outflow: parseFloat(combinedRes[0]?.refundTotal) || 0,
+          momknCashImpact: parseFloat(combinedRes[0]?.momknCashImpact) || 0,
+          mmCashImpact: parseFloat(combinedRes[0]?.mobileMoneyCashImpact) || 0
+        }
+      }
 
-      const salesTotal   = parseFloat(combinedRes[0]?.salesTotal)  || 0
-      const repayTotal   = parseFloat(combinedRes[0]?.repayTotal)  || 0
-      const refundTotal  = parseFloat(combinedRes[0]?.refundTotal) || 0
-      const expected = currentShift.initial_cash + salesTotal + repayTotal - refundTotal
+      let expected = 0
+      if (currentUser?.role === 'admin') {
+        const expectedMainCash = d.initialCash + d.cashSales + d.inflow - d.outflow
+        const expectedMomknCash = d.momknCashImpact || 0
+        const expectedMobileMoneyCash = d.mmCashImpact || 0
+        expected = expectedMainCash + expectedMomknCash + expectedMobileMoneyCash
+      } else {
+        // Classic simple expected cash formula for cashiers
+        expected = (d.initialCash || 0) + (d.cashSales || 0) + (d.inflow || 0) - (d.outflow || 0)
+      }
       const difference = actual - expected
       const nowStr = getNowStr()
 
@@ -228,8 +257,65 @@ export function usePOSController({
             userId: currentUser?.id,
             username: currentUser?.username,
             actionType: 'shift_close',
-            description: `إغلاق الوردية رقم #${currentShift.id} (الفعلي: ${actual.toFixed(2)} ج.م، المتوقع: ${expected.toFixed(2)} ج.م، الفرق: ${difference.toFixed(2)} ج.م)`
+            description: `إغلاق الوردية رقم #${currentShift.id} (الفعلي: ${actual?.toFixed(2)} ج.م، المتوقع: ${expected?.toFixed(2)} ج.م، الفرق: ${difference?.toFixed(2)} ج.م)`
           })
+
+          // Trigger print report automatically!
+          if (window.api && window.api.printer && window.api.printer.print) {
+            try {
+              const momknRes = await executeQuery(`
+                SELECT 
+                  COALESCE((SELECT SUM(digital_impact) FROM momkn_transactions WHERE shift_id=${currentShift.id}), 0) as digitalImpact,
+                  COALESCE((SELECT SUM(cash_impact) FROM momkn_transactions WHERE shift_id=${currentShift.id}), 0) as cashImpact,
+                  COALESCE((SELECT SUM(commission) FROM momkn_transactions WHERE shift_id=${currentShift.id}), 0) as commission
+              `)
+              const mmRes = await executeQuery(`
+                SELECT 
+                  COALESCE((SELECT SUM(digital_impact) FROM mobile_money_transactions WHERE shift_id=${currentShift.id}), 0) as digitalImpact,
+                  COALESCE((SELECT SUM(cash_impact) FROM mobile_money_transactions WHERE shift_id=${currentShift.id}), 0) as cashImpact,
+                  COALESCE((SELECT SUM(commission) FROM mobile_money_transactions WHERE shift_id=${currentShift.id}), 0) as commission,
+                  COALESCE((SELECT SUM(digital_impact) FROM mobile_money_transactions WHERE shift_id=${currentShift.id} AND platform='vodafone_cash'), 0) as vfcashDigitalImpact,
+                  COALESCE((SELECT SUM(digital_impact) FROM mobile_money_transactions WHERE shift_id=${currentShift.id} AND platform='instapay'), 0) as instapayDigitalImpact,
+                  COALESCE((SELECT SUM(digital_impact) FROM mobile_money_transactions WHERE shift_id=${currentShift.id} AND platform='bank_transfer'), 0) as bankDigitalImpact
+              `)
+
+              const mSum = momknRes[0] || {}
+              const mmSum = mmRes[0] || {}
+
+              const momknSummary = {
+                expectedDigitalBalance: (currentShift.momkn_start_balance || 0) + (parseFloat(mSum.digitalImpact) || 0),
+                totalCashImpact: parseFloat(mSum.cashImpact) || 0,
+                totalCommission: parseFloat(mSum.commission) || 0,
+                startBalance: currentShift.momkn_start_balance || 0
+              }
+
+              const mobileMoneySummary = {
+                expectedVfcashDigitalBalance: (currentShift.vfcash_start_balance || 0) + (parseFloat(mmSum.vfcashDigitalImpact) || 0),
+                expectedInstapayDigitalBalance: parseFloat(mmSum.instapayDigitalImpact) || 0,
+                expectedBankDigitalBalance: parseFloat(mmSum.bankDigitalImpact) || 0,
+                totalCashImpact: parseFloat(mmSum.cashImpact) || 0,
+                totalCommission: parseFloat(mmSum.commission) || 0,
+                startBalance: currentShift.vfcash_start_balance || 0
+              }
+
+              const html = generateGrandShiftReportHtml({
+                shift: { ...currentShift, username: currentUser?.username },
+                salesTotal: d.cashSales,
+                repayTotal: d.inflow,
+                refundTotal: d.outflow,
+                momknSummary,
+                mobileMoneySummary,
+                actualCash: actual,
+                expectedCash: expected,
+                difference
+              })
+
+              await window.api.printer.print(html)
+            } catch (printErr) {
+              console.error('Failed to print grand shift report:', printErr)
+            }
+          }
+
           playSound('chime')
           handleLock()
           setCloseShiftModal(false)
@@ -450,9 +536,9 @@ export function usePOSController({
       return
     }
 
-    if (!currentShift) {
+    if (!currentShift || !currentShift.id || currentShift.status !== 'open') {
       playSound('error')
-      triggerCustomAlert('لا توجد وردية كاشير مفتوحة!', 'تنبيه الوردية')
+      triggerCustomAlert('فشل البيع: لا توجد وردية كاشير مفتوحة حالياً!\nيرجى فتح وردية جديدة أولاً لبدء عمليات البيع.', 'تنبيه الوردية')
       return
     }
 
@@ -528,7 +614,7 @@ export function usePOSController({
         userId: currentUser?.id,
         username: currentUser?.username,
         actionType: 'checkout_sale',
-        description: `إتمام عملية بيع فاتورة بقيمة ${cartTotal.toFixed(2)} ج.م (طريقة الدفع: ${paymentType})`
+        description: `إتمام عملية بيع فاتورة بقيمة ${cartTotal?.toFixed(2)} ج.م (طريقة الدفع: ${paymentType})`
       })
 
       const saleResult = await executeQuery(`SELECT id FROM sales ORDER BY id DESC LIMIT 1;`)
@@ -541,16 +627,21 @@ export function usePOSController({
       const timePart = new Date().toLocaleTimeString('ar-EG')
 
       const receiptHtml = generateReceiptHtml({
-        displaySaleId,
-        datePart,
-        timePart,
-        currentUser,
-        clientName,
-        clientPhone,
-        clientAddress,
-        cart,
-        cartTotal,
-        finalDiscount,
+        sale: {
+          id: displaySaleId,
+          timestamp: `${datePart} ${timePart}`,
+          username: currentUser?.username || 'كاشير',
+          client_name: clientName || '',
+          original_amount: cartSubtotal || cartTotal,
+          total_amount: cartTotal,
+          discount: finalDiscount,
+          payment_type: paymentType || 'نقدي'
+        },
+        items: cart.map(item => ({
+          name: item.name,
+          quantity: item.qty,
+          unit_price: item.price
+        })),
         paidAmount,
         changeRemaining: paidAmount ? Math.max(0, (parseFloat(paidAmount) || 0) - cartTotal) : 0
       })
@@ -579,23 +670,28 @@ export function usePOSController({
       setSelectedClient(null)
       setClientSearchResults([])
       setPaymentType('نقدي')
-      fetchStats()
-      fetchClientsList()
-      fetchClientStats()
-      if (fetchAdminData) {
-        fetchAdminData().catch(e => console.error('Real-time admin sync failed:', e))
+      try {
+        if (fetchStats) fetchStats()
+        if (fetchClientsList) fetchClientsList()
+        if (fetchClientStats) fetchClientStats()
+        if (fetchAdminData) fetchAdminData().catch(e => console.error('Real-time admin sync failed:', e))
+      } catch (refreshErr) {
+        console.error('Post-checkout background refresh error:', refreshErr)
       }
       setTimeout(() => barcodeInputRef.current?.focus(), 100)
     } catch (e) {
-      console.error('Checkout failed:', e)
+      console.error('[CHECKOUT ERROR]', e)
       playSound('error')
-      const msg = e.message || ''
-      if (msg.includes('نفاد الكمية') || msg.includes('stock')) {
+      const errText = String(e?.message || e || '')
+      if (errText.includes('وردية مغلقة') || errText.includes('closed') || errText.includes('prevent_sale_on_closed_shift')) {
+        triggerCustomAlert('فشل البيع: لا يمكن تسجيل المعاملة لأن الوردية مغلقة.\nيرجى فتح وردية جديدة للبدء.')
+      } else if (errText.includes('stock') || errText.includes('المخزون')) {
         triggerCustomAlert('فشل البيع: رصيد المخزون لا يكفي لأحد الأصناف في السلة.\nيرجى مراجعة الكميات المطلوبة أو تحديث المخزون.')
-      } else if (msg.includes('وردية مغلقة') || msg.includes('closed')) {
-        triggerCustomAlert('فشل البيع: الوردية مغلقة. يرجى فتح وردية جديدة.')
+      } else if (errText.includes('busy') || errText.includes('locked')) {
+        triggerCustomAlert('فشلت المعاملة: قاعدة البيانات مشغولة مؤقتاً.\nيرجى إعادة المحاولة فوراً.')
       } else {
-        triggerCustomAlert('فشلت المعاملة، يرجى المحاولة مرة أخرى.')
+        const friendly = getFriendlyErrorMessage(e)
+        triggerCustomAlert(`فشلت المعاملة أثناء حفظ الفاتورة!\nالسبب: ${friendly || errText.slice(0, 120)}\nيرجى المحاولة مرة أخرى.`)
       }
     }
   }
@@ -647,14 +743,11 @@ export function usePOSController({
       }
 
       const receiptHtml = generateReprintHtml({
-        displaySaleId,
-        datePart,
-        timePart,
-        s,
-        clName,
-        clPhone,
-        clAddress,
-        items
+        sale: {
+          ...s,
+          id: displaySaleId
+        },
+        items: items
       })
 
       if (!noPrint && window.api && window.api.printer && window.api.printer.print) {

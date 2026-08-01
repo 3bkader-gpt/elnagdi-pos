@@ -289,7 +289,7 @@ export default function ClientsTab({
                       <>
                         {/* Show payments and credits */}
                         {adminClientLedger.map(l => {
-                          const match = l.description.match(/#(\d+)/)
+                          const match = l.description?.match(/#(\d+)/)
                           const saleId = match ? parseInt(match[1], 10) : null
                           return (
                             <tr 
@@ -411,7 +411,7 @@ export default function ClientsTab({
                         <td style={{ fontWeight: 'bold' }}>{client.name}</td>
                         <td>{client.phone || '—'}</td>
                         <td style={{ fontWeight: 'bold', color: 'var(--accent-emerald)', textAlign: 'left' }}>
-                          {client.totalSpent.toFixed(2)} ج.م
+                          {client.totalSpent?.toFixed(2)} ج.م
                         </td>
                       </tr>
                     ))}

@@ -38,11 +38,11 @@ export async function getClosedShiftsHistory() {
  * @param {object} params 
  * @returns {Promise<object|null>}
  */
-export async function openShift({ userId, startingCash }) {
+export async function openShift({ userId, startingCash, momknStartBalance = 0, vfcashStartBalance = 0 }) {
   const nowStr = getNowStr()
   await executeQuery(`
-    INSERT INTO shifts (user_id, start_time, initial_cash, expected_end_cash, actual_end_cash, status)
-    VALUES (${userId}, '${nowStr}', ${startingCash}, ${startingCash}, 0, 'open');
+    INSERT INTO shifts (user_id, start_time, initial_cash, expected_end_cash, actual_end_cash, status, momkn_start_balance, vfcash_start_balance)
+    VALUES (${userId}, '${nowStr}', ${startingCash}, ${startingCash}, 0, 'open', ${momknStartBalance}, ${vfcashStartBalance});
   `)
   
   const latestShift = await executeQuery(`

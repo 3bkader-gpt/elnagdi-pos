@@ -140,7 +140,7 @@ export default function BestSellersTab({
                   {bestSeller?.name || '—'}
                 </span>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  {bestSeller ? `مبيعات: ${bestSeller.total_qty_sold.toFixed(0)} ${bestSeller.unit} | ربح: ${bestSellerProfit.toFixed(2)} ج.م` : 'لا توجد مبيعات'}
+                  {bestSeller ? `مبيعات: ${bestSeller.total_qty_sold?.toFixed(0)} ${bestSeller.unit} | ربح: ${bestSellerProfit?.toFixed(2)} ج.م` : 'لا توجد مبيعات'}
                 </span>
               </div>
             </div>
@@ -152,7 +152,7 @@ export default function BestSellersTab({
               <div className="admin-stat-info">
                 <span className="admin-stat-label">إجمالي وحدات مباعة</span>
                 <span className="admin-stat-value">
-                  {totalQty.toFixed(2)}
+                  {totalQty?.toFixed(2)}
                 </span>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
                   من أصل {bsTopSellers.length} صنف نشط بالفترة
@@ -167,10 +167,10 @@ export default function BestSellersTab({
               <div className="admin-stat-info">
                 <span className="admin-stat-label">إجمالي إيرادات الأصناف</span>
                 <span className="admin-stat-value">
-                  {totalRevenue.toFixed(2)} ج.م
+                  {totalRevenue?.toFixed(2)} ج.م
                 </span>
                 <span style={{ fontSize: '0.72rem', color: 'var(--accent-emerald)', fontWeight: 700 }}>
-                  صافي أرباح الأصناف: {totalProfit.toFixed(2)} ج.م
+                  صافي أرباح الأصناف: {totalProfit?.toFixed(2)} ج.م
                 </span>
               </div>
             </div>
@@ -183,7 +183,7 @@ export default function BestSellersTab({
                 <span className="admin-stat-label">منتجات راكدة</span>
                 <span className="admin-stat-value">{bsSlowMovers.length} صنف</span>
                 <span style={{ fontSize: '0.72rem', color: 'var(--accent-rose)', fontWeight: 700 }}>
-                  رأس المال الراكد: {stagnantCapital.toFixed(2)} ج.م
+                  رأس المال الراكد: {stagnantCapital?.toFixed(2)} ج.م
                 </span>
               </div>
             </div>
@@ -257,10 +257,10 @@ export default function BestSellersTab({
                       </div>
                       <div style={{ textAlign: 'left', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <div style={{ fontWeight: 800, color: 'var(--accent-emerald)', fontSize: '1.05rem' }}>
-                          {Number(row.total_qty_sold).toFixed(2)} {row.unit}
+                          {Number(row.total_qty_sold)?.toFixed(2)} {row.unit}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                          {Number(row.total_revenue).toFixed(2)} ج.م
+                          {Number(row.total_revenue)?.toFixed(2)} ج.م
                         </div>
                         <div style={{
                           fontSize: '0.72rem',
@@ -272,7 +272,7 @@ export default function BestSellersTab({
                           alignSelf: 'flex-end',
                           marginTop: '2px'
                         }}>
-                          ربح: {itemProfit.toFixed(2)} ج.م ({profitMargin.toFixed(0)}%)
+                          ربح: {itemProfit?.toFixed(2)} ج.م ({profitMargin?.toFixed(0)}%)
                         </div>
                       </div>
                     </div>
@@ -325,7 +325,7 @@ export default function BestSellersTab({
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', direction: 'rtl' }}>
                         <span className="bs-badge bs-badge-gray">🏷️ {row.barcode}</span>
-                        <span className="bs-badge bs-badge-blue">💵 بيع: {Number(row.price).toFixed(2)} ج.م</span>
+                        <span className="bs-badge bs-badge-blue">💵 بيع: {Number(row.price)?.toFixed(2)} ج.م</span>
                         <span className="bs-badge bs-badge-gray">⚙️ تكلفة: {Number(row.cost || 0).toFixed(2)} ج.م</span>
                       </div>
                     </div>
@@ -347,7 +347,7 @@ export default function BestSellersTab({
                         alignSelf: 'flex-end',
                         marginTop: '2px'
                       }}>
-                        قيمة: {stagnantValue.toFixed(2)} ج.م
+                        قيمة: {stagnantValue?.toFixed(2)} ج.م
                       </div>
                     </div>
                   </div>

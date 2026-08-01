@@ -174,9 +174,9 @@ export function useCashierPerformance() {
       const newAlerts = []
       if (cashierList.length > 0) newAlerts.push({ type: 'success', msg: `أفضل كاشير في الفترة: ${cashierList[0].username} بدرجة ${cashierList[0].score}/100` })
       cashierList.forEach(c => {
-        if (c.returnRate > 10)     newAlerts.push({ type: 'danger',  msg: `${c.username}: معدل المرتجعات مرتفع (${c.returnRate.toFixed(1)}%)` })
-        if (c.avgAbsCashDiff > 50) newAlerts.push({ type: 'danger',  msg: `${c.username}: متوسط عجز الخزينة عالٍ (${c.avgAbsCashDiff.toFixed(2)} ج.م)` })
-        if (c.debtPct > 30)        newAlerts.push({ type: 'warning', msg: `${c.username}: نسبة المبيعات الآجل مرتفعة (${c.debtPct.toFixed(1)}%)` })
+        if (c.returnRate > 10)     newAlerts.push({ type: 'danger',  msg: `${c.username}: معدل المرتجعات مرتفع (${c.returnRate?.toFixed(1)}%)` })
+        if (c.avgAbsCashDiff > 50) newAlerts.push({ type: 'danger',  msg: `${c.username}: متوسط عجز الخزينة عالٍ (${c.avgAbsCashDiff?.toFixed(2)} ج.م)` })
+        if (c.debtPct > 30)        newAlerts.push({ type: 'warning', msg: `${c.username}: نسبة المبيعات الآجل مرتفعة (${c.debtPct?.toFixed(1)}%)` })
       })
       setAlerts(newAlerts)
 
