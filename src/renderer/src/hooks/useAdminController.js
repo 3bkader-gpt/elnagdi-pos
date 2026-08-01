@@ -116,8 +116,6 @@ export function useAdminController({ currentShift, currentUser, setToastMessage,
       const damagedRes = await executeQuery(damagedQuery)
       const totalDamagedCost = damagedRes[0]?.total_damaged_cost || 0
 
-      const netProfit = netProfitSales - totalDamagedCost
-
       // 3. Expenses
       const expensesQuery = `
         SELECT SUM(amount) as total FROM expenses
@@ -125,6 +123,9 @@ export function useAdminController({ currentShift, currentUser, setToastMessage,
       `
       const expensesRes = await executeQuery(expensesQuery)
       const totalExpenses = expensesRes[0]?.total || 0
+
+      // True Net Profit = Gross Profit from Sales - Damaged Goods Loss - Operating Expenses
+      const netProfit = netProfitSales - totalDamagedCost - totalExpenses
 
       // 4. Safe Inflows and Outflows
       const safeCondition = shiftIdsFilter ? `WHERE shift_id IN (${shiftIdsFilter})` : ''
