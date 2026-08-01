@@ -56,7 +56,6 @@ export function useUsersManager({ currentUser, fetchStats, fetchAdminData, trigg
               await executeQuery(`BEGIN TRANSACTION;
 DELETE FROM sale_items;
 DELETE FROM sales;
-DELETE FROM shifts;
 DELETE FROM safe_ledger;
 DELETE FROM client_ledger;
 DELETE FROM clients;
@@ -64,7 +63,13 @@ DELETE FROM supplier_ledger;
 DELETE FROM supplier_purchases;
 DELETE FROM suppliers;
 DELETE FROM checks_register;
-DELETE FROM sqlite_sequence WHERE name IN ('sale_items','sales','shifts','safe_ledger','client_ledger','clients','supplier_ledger','supplier_purchases','suppliers','checks_register');
+DELETE FROM expenses;
+DELETE FROM damaged_goods;
+DELETE FROM shift_audits;
+DELETE FROM momkn_transactions;
+DELETE FROM mobile_money_transactions;
+DELETE FROM shifts;
+DELETE FROM sqlite_sequence WHERE name IN ('sale_items','sales','shifts','safe_ledger','client_ledger','clients','supplier_ledger','supplier_purchases','suppliers','checks_register','expenses','damaged_goods','shift_audits','momkn_transactions','mobile_money_transactions');
 UPDATE products SET stock_qty = 0 WHERE stock_qty < 0;
 COMMIT;`)
               await logEvent({
