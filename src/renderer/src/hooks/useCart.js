@@ -46,7 +46,7 @@ export function useCart({ playSound, triggerCustomAlert }) {
       if (existing) {
         return prevCart.map((item) =>
           item.barcode === product.barcode
-            ? { ...item, qty: targetQty, total: targetQty * item.price }
+            ? { ...item, qty: targetQty, total: round2(targetQty * item.price) }
             : item
         )
       } else {
@@ -59,7 +59,7 @@ export function useCart({ playSound, triggerCustomAlert }) {
             cost_price: product.cost_price || 0.0,
             qty: customQty,
             unit: product.unit || '',
-            total: (product.retail_price || 0.0) * customQty,
+            total: round2((product.retail_price || 0.0) * customQty),
             stock_qty: availableStock
           }
         ]
@@ -81,7 +81,7 @@ export function useCart({ playSound, triggerCustomAlert }) {
       }
       return prev.map((item) => 
         item.barcode === barcode 
-          ? { ...item, qty, total: qty * item.price }
+          ? { ...item, qty, total: round2(qty * item.price) }
           : item
       )
     })
