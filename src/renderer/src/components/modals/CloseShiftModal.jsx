@@ -53,52 +53,14 @@ const SimpleCloseShiftModal = ({
           </p>
         </div>
 
-        {/* Expected breakdown */}
-        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#15803d', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Calculator size={16} /> حساب الدرج التلقائي
+        {/* Blind Closing Guidance for Cashier */}
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1e40af', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Package size={18} style={{ color: '#2563eb' }} /> الجرد الأعمى وتسليم الوردية
           </div>
-          {loading ? (
-            <div style={{ textAlign: 'center', color: '#6b7280', padding: '8px 0', fontSize: '0.85rem' }}>جاري الحساب...</div>
-          ) : expected !== null ? (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', fontSize: '0.9rem' }}>
-                <span style={{ color: '#4b5563' }}>المتوقع في الدرج:</span>
-                <span style={{ fontWeight: 700, color: '#111827', textAlign: 'left' }}>{expected.toFixed(2)} ج.م</span>
-
-                <span style={{ color: '#4b5563', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={withFloat}
-                    onChange={e => setWithFloat(e.target.checked)}
-                    style={{ accentColor: '#f59e0b', cursor: 'pointer', width: 15, height: 15 }}
-                  />
-                  عهدة الفكة (200 تبقى):
-                </span>
-                <span style={{ fontWeight: 700, color: withFloat ? '#d97706' : '#9ca3af', textAlign: 'left', textDecoration: withFloat ? 'none' : 'line-through' }}>- {FLOAT_AMOUNT.toFixed(2)} ج.م</span>
-
-                <span style={{ color: '#374151', borderTop: '1px solid #e5e7eb', paddingTop: 6, fontWeight: 'bold' }}>مبلغ التوريد للمالك:</span>
-                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#16a34a', textAlign: 'left', borderTop: '1px solid #e5e7eb', paddingTop: 6 }}>
-                  {handover !== null ? handover.toFixed(2) : '—'} ج.م
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActualEndCash(expected.toFixed(2))}
-                style={{ marginTop: 12, width: '100%', padding: '8px', borderRadius: 8, border: '1.5px solid #16a34a', background: '#ffffff', color: '#16a34a', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer' }}
-              >
-                ← احسب تلقائياً ({expected.toFixed(2)} ج.م)
-              </button>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.85rem' }}>تعذّر حساب المتوقع</div>
-          )}
-        </div>
-
-        {/* Note */}
-        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', padding: '10px 14px', borderRadius: 8, fontSize: '0.82rem', color: '#4b5563', marginBottom: 16 }}>
-          <Package size={14} style={{ verticalAlign: 'middle', marginLeft: 4, color: '#6b7280' }} />
-          <b>نظام التوريد:</b> ضع مبلغ التوريد في ظرف وسلّمه للمالك. تبقى <b>200 ج.م</b> فكة في الدرج للشيفت التالي.
+          <p style={{ margin: 0, fontSize: '0.84rem', color: '#1e3a8a', lineHeight: 1.5 }}>
+            يرجى عد جميع المبالغ النقدية الكاش الموجودة بالدرج بدقة وتسجيلها أدناه قبل تقفيل الوردية. <b>ملاحظة:</b> تبقى <b>200 ج.م</b> فكة بالدرج للوردية التالية.
+          </p>
         </div>
 
         {/* Actual input */}
