@@ -112,7 +112,7 @@ export function useSalesManager({ currentShift, fetchAdminData, triggerCustomAle
         sql += `UPDATE sale_items SET returned_qty = ${newReturnedQty}, total_price = ${newTotalPrice} WHERE id = ${saleItem.id};\n`
         
         // Update sales total_amount
-        sql += `UPDATE sales SET total_amount = (SELECT IFNULL(SUM(total_price), 0) FROM sale_items WHERE sale_id = ${saleItem.sale_id}) - discount WHERE id = ${saleItem.sale_id};\n`
+        sql += `UPDATE sales SET total_amount = MAX(0, (SELECT IFNULL(SUM(total_price), 0) FROM sale_items WHERE sale_id = ${saleItem.sale_id}) - discount) WHERE id = ${saleItem.sale_id};\n`
         
         const shiftId = currentShift ? currentShift.id : 'NULL'
         const refundAmount = qtyToReturn * saleItem.unit_price
@@ -169,7 +169,7 @@ export function useSalesManager({ currentShift, fetchAdminData, triggerCustomAle
         })
 
         sql += `UPDATE sale_items SET returned_qty = quantity, total_price = 0 WHERE sale_id = ${saleId};\n`
-        sql += `UPDATE sales SET total_amount = 0 WHERE id = ${saleId};\n`
+        sql += `UPDATE sales SET total_amount = 0, discount = 0 WHERE id = ${saleId};\n`
 
         const shiftId = currentShift ? currentShift.id : 'NULL'
         const refundAmount = saleData.total_amount || 0
