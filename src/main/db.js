@@ -375,9 +375,16 @@ export function executeSql(sqlQuery) {
         }
         const matches = trimmed.match(/\[[\s\S]*?\]/g)
         if (matches && matches.length > 0) {
-          const lastMatch = matches[matches.length - 1]
-          const result = JSON.parse(lastMatch)
-          resolve(result)
+          // Filter out PRAGMA busy_timeout output
+          const validMatches = matches.filter(m => !m.includes('{"timeout":10000}'))
+          
+          if (validMatches.length > 0) {
+            const lastMatch = validMatches[validMatches.length - 1]
+            const result = JSON.parse(lastMatch)
+            resolve(result)
+          } else {
+            resolve([])
+          }
         } else {
           resolve([])
         }

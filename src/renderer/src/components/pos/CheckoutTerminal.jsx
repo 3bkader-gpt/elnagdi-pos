@@ -50,7 +50,8 @@ function CheckoutTerminal({
   setDepositChange,
   appliedCredit,
   setAppliedCredit,
-  selectedClient
+  selectedClient,
+  triggerCustomAlert
 }) {
   const handlePrintShortages = async () => {
     if (!dbStats.lowStockItems || dbStats.lowStockItems.length === 0) return
@@ -386,7 +387,9 @@ function CheckoutTerminal({
                   className={`btn ${paymentType === 'آجل' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => {
                     if (!clientName.trim()) {
-                      alert('يرجى تحديد العميل أولاً لإجراء عملية بيع آجل!')
+                      if (triggerCustomAlert) {
+                        triggerCustomAlert('يرجى تحديد العميل أولاً لإجراء عملية بيع آجل!', 'تنبيه البيع الآجل')
+                      }
                       return
                     }
                     setPaymentType('آجل')
@@ -400,7 +403,9 @@ function CheckoutTerminal({
                   className={`btn ${paymentType === 'دفع جزئي' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => {
                     if (!clientName.trim()) {
-                      alert('يرجى تحديد العميل أولاً لإجراء عملية دفع جزئي!')
+                      if (triggerCustomAlert) {
+                        triggerCustomAlert('يرجى تحديد العميل أولاً لإجراء عملية دفع جزئي!', 'تنبيه الدفع الجزئي')
+                      }
                       return
                     }
                     setPaymentType('دفع جزئي')

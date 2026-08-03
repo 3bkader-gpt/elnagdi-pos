@@ -51,7 +51,7 @@ const MobileMoneyOperationModal = ({
     const comVal = parseFloat(commission) || 0
 
     if (digVal <= 0) {
-      alert('الرجاء إدخال مبلغ صحيح أكبر من الصفر!')
+      setErrorMsg('الرجاء إدخال مبلغ صحيح أكبر من الصفر!')
       return
     }
 
@@ -101,7 +101,7 @@ const MobileMoneyOperationModal = ({
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '480px', backgroundColor: '#ffffff', color: '#111827', borderRadius: '12px', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+      <div className="modal-content" style={{ maxWidth: '480px', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', backgroundColor: '#ffffff', color: '#111827', borderRadius: '12px', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
         <div className="modal-header" style={{ marginBottom: '16px' }}>
           <h2 style={{ color: '#111827', margin: 0, fontSize: '1.4rem' }}>تسجيل حركة محفظة / تحويل</h2>
           <p style={{ color: '#6b7280', fontSize: '0.88rem', marginTop: '4px' }}>سجل حركة سحب أو إيداع لربط الكاش والأرصدة الرقمية</p>

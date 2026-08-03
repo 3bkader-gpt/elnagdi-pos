@@ -52,18 +52,18 @@ function get(html, pat) {
 }
 
 function buildReceiptText(html, storeName = 'سوبر ماركت النجدي', branchName = 'الفرع الرئيسي') {
-  const saleId  = get(html, /رقم العملية:[\s\S]*?([\d?]+)/) || get(html, /فاتورة رقم:[\s\S]*?([\d?]+)/)
-  const date    = get(html, /التاريخ:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
-  const time    = get(html, /الوقت:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
-  const cashier = get(html, /الكاشير:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
-  const client  = get(html, /العميل:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
-  const phone   = get(html, /هاتف العميل:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
-  const address = get(html, /العنوان:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/)
-  const title   = get(html, /نوع التقرير:[\s\S]*?<\/b>\s*([\s\S]*?)(?:<\/div>|<br)/) || 'فاتورة بيع'
+  const saleId  = get(html, /رقم العملية[\s\S]*?#?\s*([\d?]+)/) || get(html, /فاتورة[\s\S]*?#?\s*([\d?]+)/) || '—'
+  const date    = get(html, /التاريخ:[\s\S]*?(?:<\/b>|:)\s*([^<]+)/)
+  const time    = get(html, /الوقت:[\s\S]*?(?:<\/b>|:)\s*([^<]+)/)
+  const cashier = get(html, /الكاشير:[\s\S]*?(?:<\/b>|:)\s*([^<]+)/)
+  const client  = get(html, /العميل:[\s\S]*?(?:<\/b>|:)\s*([^<]+)/)
+  const phone   = get(html, /(?:هاتف العميل|الهاتف):[\s\S]*?(?:<\/b>|:)\s*([^<]+)/)
+  const address = get(html, /العنوان:[\s\S]*?(?:<\/b>|:)\s*([^<]+)/)
+  const title   = get(html, /نوع التقرير:[\s\S]*?(?:<\/b>|:)\s*([^<]+)/) || 'فاتورة بيع'
 
-  const total   = get(html, /الإجمالي:<\/span>\s*<span>([^<]+)/)
-  const disc    = get(html, /خصم الفاتورة:<\/span>\s*<span>([^<]+)/)
-  const paid    = get(html, /المدفوع:<\/span>\s*<span>([^<]+)/)
+  const total   = get(html, /(?:الإجمالي النهائي|الإجمالي):<\/span>\s*<span>([^<]+)/) || get(html, /(?:الإجمالي النهائي|الإجمالي)[\s\S]*?<span>([^<]+)/)
+  const disc    = get(html, /(?:خصم الفاتورة|الخصم):<\/span>\s*<span>([^<]+)/)
+  const paid    = get(html, /(?:المبلغ المدفوع|المدفوع):<\/span>\s*<span>([^<]+)/)
   const change  = get(html, /الباقي للعميل:<\/span>\s*<span>([^<]+)/)
   const items   = parseItems(html)
 

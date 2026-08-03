@@ -44,7 +44,12 @@ const TillsManagerTab = ({
     const initialCash = currentShift.initial_cash || 0
 
     try {
-      const salesRes = await executeQuery(`
+      const allSalesRes = await executeQuery(`
+        SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total 
+        FROM sales 
+        WHERE shift_id = ${shiftId};
+      `)
+      const cashSalesRes = await executeQuery(`
         SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total 
         FROM sales 
         WHERE shift_id = ${shiftId} AND payment_type = 'نقدي';
@@ -53,6 +58,11 @@ const TillsManagerTab = ({
         SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total 
         FROM sales 
         WHERE shift_id = ${shiftId} AND payment_type = 'آجل';
+      `)
+      const digitalSalesRes = await executeQuery(`
+        SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total 
+        FROM sales 
+        WHERE shift_id = ${shiftId} AND payment_type NOT IN ('نقدي', 'آجل');
       `)
       const repayRes = await executeQuery(`
         SELECT IFNULL(SUM(amount), 0) as total
@@ -77,18 +87,24 @@ const TillsManagerTab = ({
         WHERE shift_id = ${shiftId} AND type = 'outflow' AND (description NOT LIKE 'مرتجع%' AND description NOT LIKE 'إرجاع%' AND description NOT LIKE 'دفعة لمورد%' AND description NOT LIKE 'سداد دين مورد%');
       `)
 
-      const salesTotal = parseFloat(salesRes[0]?.total) || 0
+      const allSalesTotal = parseFloat(allSalesRes[0]?.total) || 0
+      const cashSalesTotal = parseFloat(cashSalesRes[0]?.total) || 0
+      const debtSalesTotal = parseFloat(debtRes[0]?.total) || 0
+      const digitalSalesTotal = parseFloat(digitalSalesRes[0]?.total) || 0
       const repayTotal = parseFloat(repayRes[0]?.total) || 0
       const returnsTotal = parseFloat(returnsRes[0]?.total) || 0
       const supplierTotal = parseFloat(supplierRes[0]?.total) || 0
       const expensesTotal = parseFloat(expensesRes[0]?.total) || 0
       
-      const expected = initialCash + salesTotal + repayTotal - returnsTotal - supplierTotal - expensesTotal
+      const expected = initialCash + allSalesTotal - debtSalesTotal - digitalSalesTotal + repayTotal - returnsTotal - supplierTotal - expensesTotal
 
       setMainDrawerSummary({
         initialCash,
         expectedCash: expected,
-        cashSales: salesTotal,
+        allSales: allSalesTotal,
+        cashSales: cashSalesTotal,
+        debtSales: debtSalesTotal,
+        digitalSales: digitalSalesTotal,
         inflows: repayTotal,
         returns: returnsTotal,
         supplierPayments: supplierTotal,
@@ -108,15 +124,6 @@ const TillsManagerTab = ({
     }
   }, [currentShift, fetchMainDrawerData])
 
-  // Block Seif Fayez completely from this view during testing
-  if (isSeifFayez) {
-    return (
-      <div className="tab-container text-center" style={{ padding: '40px', color: '#ef4444' }}>
-        <h2>عذراً، ليس لديك صلاحية لعرض هذه الشاشة حالياً.</h2>
-        <p>يرجى التواصل مع الإدارة لتفعيل الميزة لجميع المستخدمين.</p>
-      </div>
-    )
-  }
 
   // Print Handlers (Admin Only)
   const handlePrintMomknReport = () => {
@@ -199,16 +206,18 @@ const TillsManagerTab = ({
               <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '5px', color: '#111827' }}>{formatVal(mainDrawerSummary.initialCash)} ج.م</div>
             </div>
             <div className="stat-card" style={{ padding: '15px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <div style={{ color: '#4b5563', fontSize: '12px', fontWeight: '600' }}>المبيعات النقدية (كاش)</div>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '5px', color: '#10b981' }}>+{formatVal(mainDrawerSummary.cashSales)} ج.م</div>
+              <div style={{ color: '#4b5563', fontSize: '12px', fontWeight: '600' }}>إجمالي مبيعات الفواتير بالكامل</div>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '5px', color: '#10b981' }}>+{formatVal(mainDrawerSummary.allSales)} ج.م</div>
             </div>
+            {(mainDrawerSummary.debtSales > 0 || mainDrawerSummary.digitalSales > 0) && (
+              <div className="stat-card" style={{ padding: '15px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div style={{ color: '#4b5563', fontSize: '12px', fontWeight: '600' }}>آجل وتحويلات (لم تدخل كاش)</div>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '5px', color: '#f59e0b' }}>-{formatVal(mainDrawerSummary.debtSales + mainDrawerSummary.digitalSales)} ج.م</div>
+              </div>
+            )}
             <div className="stat-card" style={{ padding: '15px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ color: '#4b5563', fontSize: '12px', fontWeight: '600' }}>سداد ديون عملاء (دخل الخزنة)</div>
               <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '5px', color: '#10b981' }}>+{formatVal(mainDrawerSummary.inflows)} ج.م</div>
-            </div>
-            <div className="stat-card" style={{ padding: '15px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <div style={{ color: '#4b5563', fontSize: '12px', fontWeight: '600' }}>مرتجع مبيعات (كاش - خرج)</div>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '5px', color: '#ef4444' }}>-{formatVal(mainDrawerSummary.returns)} ج.م</div>
             </div>
             <div className="stat-card" style={{ padding: '15px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ color: '#4b5563', fontSize: '12px', fontWeight: '600' }}>مدفوعات موردين (كاش - خرج)</div>

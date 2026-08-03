@@ -96,7 +96,7 @@ export function useSalesManager({ currentShift, fetchAdminData, triggerCustomAle
 
     triggerCustomConfirm(`هل أنت متأكد من رغبتك في إرجاع كمية ${qtyToReturn} من الصنف "${saleItem.name || saleItem.product_barcode}"؟`, async () => {
       try {
-        const freshSales = await executeQuery(`SELECT original_amount, total_amount, discount, payment_type, client_id, id FROM sales WHERE id = ${saleItem.sale_id} LIMIT 1;`)
+        const freshSales = await executeQuery(`SELECT original_amount, total_amount, discount, payment_type, client_id, id, shift_id FROM sales WHERE id = ${saleItem.sale_id} LIMIT 1;`)
         const saleData = freshSales?.[0]
         if (!saleData) {
           triggerCustomAlert('لم يتم العثور على الفاتورة!')
@@ -121,7 +121,7 @@ export function useSalesManager({ currentShift, fetchAdminData, triggerCustomAle
         // Update sales discount and total_amount
         sql += `UPDATE sales SET discount = MAX(0, discount - ${discountShare}), total_amount = MAX(0, (SELECT IFNULL(SUM(total_price), 0) FROM sale_items WHERE sale_id = ${saleItem.sale_id}) - MAX(0, discount - ${discountShare})) WHERE id = ${saleItem.sale_id};\n`
         
-        const shiftId = currentShift ? currentShift.id : 'NULL'
+        const shiftId = (currentShift && currentShift.id) ? currentShift.id : (saleData.shift_id || 'NULL')
         const nowStr = getNowStr()
         
         if (saleData.payment_type === 'آجل' && saleData.client_id) {
@@ -159,7 +159,7 @@ export function useSalesManager({ currentShift, fetchAdminData, triggerCustomAle
     triggerCustomConfirm('هل أنت متأكد من رغبتك في إلغاء وإرجاع الفاتورة بالكامل؟ سيتم إعادة جميع الكميات إلى المخزن وتصفير قيمتها المتبقية.', async () => {
       try {
         const items = await executeQuery(`SELECT * FROM sale_items WHERE sale_id = ${saleId};`)
-        const freshSale = await executeQuery(`SELECT total_amount, payment_type, client_id FROM sales WHERE id = ${saleId} LIMIT 1;`)
+        const freshSale = await executeQuery(`SELECT total_amount, payment_type, client_id, shift_id FROM sales WHERE id = ${saleId} LIMIT 1;`)
         const saleData = freshSale?.[0]
         if (!saleData) {
           triggerCustomAlert('لم يتم العثور على الفاتورة!')
@@ -177,7 +177,7 @@ export function useSalesManager({ currentShift, fetchAdminData, triggerCustomAle
         sql += `UPDATE sale_items SET returned_qty = quantity, total_price = 0 WHERE sale_id = ${saleId};\n`
         sql += `UPDATE sales SET total_amount = 0, discount = 0 WHERE id = ${saleId};\n`
 
-        const shiftId = currentShift ? currentShift.id : 'NULL'
+        const shiftId = (currentShift && currentShift.id) ? currentShift.id : (saleData.shift_id || 'NULL')
         const refundAmount = saleData.total_amount || 0
         const nowStr = getNowStr()
 

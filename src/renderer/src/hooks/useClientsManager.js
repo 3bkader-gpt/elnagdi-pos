@@ -232,8 +232,9 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
     }
     try {
       const nowStr = getNowStr()
-      if (phone) {
-        const dup = await executeQuery(`SELECT * FROM clients WHERE phone = '${escapeSql(phone)}' LIMIT 1;`)
+      const cleanPhone = phone ? String(phone).replace(/\D/g, '').trim() : ''
+      if (cleanPhone) {
+        const dup = await executeQuery(`SELECT * FROM clients WHERE phone = '${escapeSql(cleanPhone)}' LIMIT 1;`)
         if (dup.length > 0) {
           triggerCustomAlert('رقم الهاتف هذا مسجل لعميل آخر بالفعل!')
           return
@@ -261,8 +262,9 @@ export function useClientsManager({ currentShift, fetchStats, triggerCustomAlert
       return
     }
     try {
-      if (phone) {
-        const dup = await executeQuery(`SELECT * FROM clients WHERE phone = '${escapeSql(phone)}' AND id != ${id} LIMIT 1;`)
+      const cleanPhone = phone ? String(phone).replace(/\D/g, '').trim() : ''
+      if (cleanPhone) {
+        const dup = await executeQuery(`SELECT * FROM clients WHERE phone = '${escapeSql(cleanPhone)}' AND id != ${id} LIMIT 1;`)
         if (dup.length > 0) {
           triggerCustomAlert('رقم الهاتف هذا مسجل لعميل آخر بالفعل!')
           return

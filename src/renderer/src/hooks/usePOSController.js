@@ -214,36 +214,49 @@ export function usePOSController({
     }
 
     try {
-      let d = aggregatedData
-      if (!d) {
-        const combinedRes = await executeQuery(`
-          SELECT 
-            (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0), total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي') as salesTotal,
-            (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'inflow') as repayTotal,
-            (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow') as refundTotal,
-            (SELECT IFNULL(SUM(cash_impact), 0) FROM momkn_transactions WHERE shift_id = ${currentShift.id}) as momknCashImpact,
-            (SELECT IFNULL(SUM(cash_impact), 0) FROM mobile_money_transactions WHERE shift_id = ${currentShift.id}) as mobileMoneyCashImpact;
-        `)
-        d = {
-          initialCash: currentShift.initial_cash || 0,
-          cashSales: parseFloat(combinedRes[0]?.salesTotal) || 0,
-          inflow: parseFloat(combinedRes[0]?.repayTotal) || 0,
-          outflow: parseFloat(combinedRes[0]?.refundTotal) || 0,
-          momknCashImpact: parseFloat(combinedRes[0]?.momknCashImpact) || 0,
-          mmCashImpact: parseFloat(combinedRes[0]?.mobileMoneyCashImpact) || 0
-        }
+      const combinedRes = await executeQuery(`
+        SELECT 
+          (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id}) as salesTotal,
+          (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'آجل') as debtSales,
+          (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type NOT IN ('نقدي', 'آجل')) as digitalSales,
+          (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي') as cashSales,
+          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'inflow') as repayTotal,
+          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow' AND (description LIKE 'مرتجع%')) as returnsTotal,
+          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow' AND (description LIKE 'دفعة لمورد%' OR description LIKE 'سداد دين مورد%')) as supplierTotal,
+          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow' AND (description NOT LIKE 'مرتجع%' AND description NOT LIKE 'دفعة لمورد%' AND description NOT LIKE 'سداد دين مورد%')) as expensesTotal,
+          (SELECT IFNULL(SUM(cash_impact), 0) FROM momkn_transactions WHERE shift_id = ${currentShift.id}) as momknCashImpact,
+          (SELECT IFNULL(SUM(cash_impact), 0) FROM mobile_money_transactions WHERE shift_id = ${currentShift.id}) as mobileMoneyCashImpact;
+      `)
+
+      const r = combinedRes[0] || {}
+      const initialCash = currentShift.initial_cash || 0
+      const cashSales = parseFloat(r.cashSales) || 0
+      const inflow = parseFloat(r.repayTotal) || 0
+      const returns = parseFloat(r.returnsTotal) || 0
+      const supplierOutflow = parseFloat(r.supplierTotal) || 0
+      const generalOutflow = parseFloat(r.expensesTotal) || 0
+      
+      const momknCashImpact = parseFloat(r.momknCashImpact) || 0
+      const mmCashImpact = parseFloat(r.mobileMoneyCashImpact) || 0
+
+      const expectedMainCash = initialCash + cashSales + inflow - (returns + supplierOutflow + generalOutflow)
+
+      const momknStartCash = Number(currentShift?.momkn_start_cash) || 0
+      const vfcashStartCash = Number(currentShift?.vfcash_start_cash) || 0
+
+      const expectedMomknCash = momknStartCash + momknCashImpact
+      const expectedMobileMoneyCash = vfcashStartCash + mmCashImpact
+
+      const grandTotalExpected = expectedMainCash + expectedMomknCash + expectedMobileMoneyCash
+
+      const expected = expectedMainCash
+
+      const d = {
+        cashSales,
+        inflow,
+        outflow: returns + supplierOutflow + generalOutflow
       }
 
-      let expected = 0
-      if (currentUser?.role === 'admin') {
-        const expectedMainCash = d.initialCash + d.cashSales + d.inflow - d.outflow
-        const expectedMomknCash = d.momknCashImpact || 0
-        const expectedMobileMoneyCash = d.mmCashImpact || 0
-        expected = expectedMainCash + expectedMomknCash + expectedMobileMoneyCash
-      } else {
-        // Classic simple expected cash formula for cashiers
-        expected = (d.initialCash || 0) + (d.cashSales || 0) + (d.inflow || 0) - (d.outflow || 0)
-      }
       const difference = actual - expected
       const nowStr = getNowStr()
 
@@ -371,37 +384,60 @@ export function usePOSController({
     if (!barcodeInput) return
 
     let rawInput = barcodeInput.trim()
-    let parsed = parseScaleBarcode(rawInput)
+    const cleanRaw = escapeSql(rawInput)
     try {
       let product = null
 
-      const lookupProduct = async (p) => {
-        if (p.isWeighted) {
-          const code = escapeSql(p.barcode)
-          const cleanCode = escapeSql(String(p.barcode || '').replace(/^0+/, ''))
-          const products = await executeQuery(`
-            SELECT * FROM products 
-            WHERE barcode = '${code}' OR barcode = '${cleanCode}' 
-            LIMIT 1;
-          `)
-          if (products.length > 0) {
-            const item = products[0]
-            let forcedQty = p.qty
-            if (p.isPriceEmbedded && p.totalPrice && parseFloat(item.retail_price) > 0) {
-              forcedQty = round2(p.totalPrice / parseFloat(item.retail_price))
+      // Try exact match, stripped leading zeros, or padded leading zero
+      const cleanRawStripped = cleanRaw.replace(/^0+/, '')
+      const cleanRawPadded = '0' + cleanRaw
+      const exactProducts = await executeQuery(`
+        SELECT * FROM products 
+        WHERE barcode = '${cleanRaw}' 
+           OR barcode = '${cleanRawStripped}' 
+           OR barcode = '${cleanRawPadded}' 
+        LIMIT 1;
+      `)
+      if (exactProducts.length > 0) {
+        product = exactProducts[0]
+      } else {
+        // If no exact match, check weighted scale barcode parsing
+        let parsed = parseScaleBarcode(rawInput)
+        const lookupProduct = async (p) => {
+          if (p.isWeighted) {
+            const code = escapeSql(p.barcode)
+            const cleanCode = escapeSql(String(p.barcode || '').replace(/^0+/, ''))
+            const products = await executeQuery(`
+              SELECT * FROM products 
+              WHERE barcode = '${code}' OR barcode = '${cleanCode}' 
+              LIMIT 1;
+            `)
+            if (products.length > 0) {
+              const item = products[0]
+              let forcedQty = p.qty
+              if (p.isPriceEmbedded && p.totalPrice && parseFloat(item.retail_price) > 0) {
+                forcedQty = round2(p.totalPrice / parseFloat(item.retail_price))
+              }
+              return { ...item, forcedQty: forcedQty > 0 ? forcedQty : 1 }
             }
-            return { ...item, forcedQty: forcedQty > 0 ? forcedQty : 1 }
+            return null
+          } else {
+            const code = escapeSql(p.barcode)
+            const codeStripped = code.replace(/^0+/, '')
+            const codePadded = '0' + code
+            const products = await executeQuery(`
+              SELECT * FROM products 
+              WHERE barcode = '${code}' 
+                 OR barcode = '${codeStripped}' 
+                 OR barcode = '${codePadded}' 
+              LIMIT 1;
+            `)
+            return products.length > 0 ? products[0] : null
           }
-          return null
-        } else {
-          const products = await executeQuery(`
-            SELECT * FROM products WHERE barcode = '${escapeSql(p.barcode)}' LIMIT 1;
-          `)
-          return products.length > 0 ? products[0] : null
         }
-      }
 
-      product = await lookupProduct(parsed)
+        product = await lookupProduct(parsed)
+      }
 
       if (!product && !parsed.isWeighted && rawInput.length >= 6 && rawInput.length <= 12) {
         const escaped = escapeSql(rawInput)
@@ -640,8 +676,8 @@ export function usePOSController({
       })
 
       const saleResult = await executeQuery(`SELECT id FROM sales ORDER BY id DESC LIMIT 1;`)
-      const rawSaleId = (saleResult && saleResult.length > 0 && saleResult[0]) ? (saleResult[0].id || 0) : 0
-      const displaySaleId = parseInt(rawSaleId) > 0 ? (((parseInt(rawSaleId) - 1) % 10000) + 1) : '?'
+      const rawSaleId = (saleResult && saleResult.length > 0 && saleResult[0]) ? (saleResult[0].id || saleResult[0].ID || 0) : 0
+      const displaySaleId = parseInt(rawSaleId) > 0 ? rawSaleId : '—'
 
       playSound('chime')
 
@@ -649,23 +685,21 @@ export function usePOSController({
       const timePart = new Date().toLocaleTimeString('ar-EG')
 
       const receiptHtml = generateReceiptHtml({
-        sale: {
-          id: displaySaleId,
-          timestamp: `${datePart} ${timePart}`,
-          username: currentUser?.username || 'كاشير',
-          client_name: clientName || '',
-          original_amount: cartSubtotal || cartTotal,
-          total_amount: cartTotal,
-          discount: finalDiscount,
-          payment_type: paymentType || 'نقدي'
-        },
-        items: cart.map(item => ({
-          name: item.name,
-          quantity: item.qty,
-          unit_price: item.price
-        })),
-        paidAmount,
-        changeRemaining: paidAmount ? Math.max(0, (parseFloat(paidAmount) || 0) - cartTotal) : 0
+        storeName: 'سوبر ماركت النجدي',
+        branchName: 'الفرع الرئيسي',
+        displaySaleId,
+        datePart,
+        timePart,
+        currentUser,
+        clientName,
+        clientPhone,
+        clientAddress,
+        cart,
+        cartTotal,
+        finalDiscount,
+        paidAmount: paidAmount ? (parseFloat(paidAmount) || cartTotal) : cartTotal,
+        changeRemaining: paidAmount ? Math.max(0, (parseFloat(paidAmount) || 0) - cartTotal) : 0,
+        paymentType: paymentType || 'نقدي'
       })
 
       if (!noPrint && window.api && window.api.printer && window.api.printer.print) {

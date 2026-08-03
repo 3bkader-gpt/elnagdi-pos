@@ -30,7 +30,7 @@ const OpenShiftModal = ({
   }
 
   return (
-    <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+    <div className="modal-overlay" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 99999 }}>
       <div 
         className="modal-content" 
         style={{ 

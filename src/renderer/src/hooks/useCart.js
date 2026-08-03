@@ -36,12 +36,6 @@ export function useCart({ playSound, triggerCustomAlert }) {
       const currentQty = existing ? existing.qty : 0
       const targetQty = currentQty + customQty
 
-      if (targetQty > availableStock) {
-        playSound('error')
-        triggerCustomAlert('رصيد المخزن لا يكفي', 'تنبيه المخزن')
-        return prevCart
-      }
-
       playSound('success')
       if (existing) {
         return prevCart.map((item) =>
@@ -73,12 +67,6 @@ export function useCart({ playSound, triggerCustomAlert }) {
       return
     }
     setCart((prev) => {
-      const existing = prev.find(item => item.barcode === barcode)
-      if (existing && qty > (existing.stock_qty || 0)) {
-        playSound('error')
-        triggerCustomAlert('رصيد المخزن لا يكفي', 'تنبيه المخزن')
-        return prev
-      }
       return prev.map((item) => 
         item.barcode === barcode 
           ? { ...item, qty, total: round2(qty * item.price) }

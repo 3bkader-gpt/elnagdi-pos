@@ -359,7 +359,7 @@ export default function SalesTab({
                   const qtyVal = parseFloat(returnQty);
                   const maxVal = activeReturnItem.quantity - (activeReturnItem.returned_qty || 0);
                   if (isNaN(qtyVal) || qtyVal <= 0 || qtyVal > maxVal) {
-                    alert(`الرجاء إدخال كمية صحيحة أكبر من 0 ولا تزيد عن ${maxVal}`);
+                    setReturnErrorMsg(`الرجاء إدخال كمية صحيحة أكبر من 0 ولا تزيد عن ${maxVal}`);
                     return;
                   }
                   handleReturnItem(activeReturnItem, qtyVal);

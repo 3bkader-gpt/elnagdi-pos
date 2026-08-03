@@ -23,12 +23,6 @@ const ChangePinModal = ({
     setSuccessMsg('')
 
     // Basic Validations
-    if (currentPin !== currentUser.password_hash) {
-      setErrorMsg('رمز المرور الحالي غير صحيح!')
-      playSound('error')
-      return
-    }
-
     if (!/^\d{4}$/.test(newPin)) {
       setErrorMsg('يجب أن يتكون رمز المرور الجديد من 4 أرقام فقط!')
       playSound('error')
@@ -48,6 +42,14 @@ const ChangePinModal = ({
     }
 
     try {
+      // Verify current password from DB directly since currentUser.password_hash might be undefined
+      const userRows = await executeQuery(`SELECT password_hash FROM users WHERE id = ${currentUser.id} LIMIT 1;`)
+      if (!userRows || userRows.length === 0 || String(userRows[0].password_hash) !== String(currentPin)) {
+        setErrorMsg('رمز المرور الحالي غير صحيح!')
+        playSound('error')
+        return
+      }
+
       // Update in DB
       await executeQuery(`
         UPDATE users 

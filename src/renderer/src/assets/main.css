@@ -485,10 +485,12 @@
   bottom: 0;
   background: rgba(5, 7, 13, 0.85);
   backdrop-filter: blur(12px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1000;
+  overflow-y: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
 }
 
 .modal-content {
@@ -497,11 +499,13 @@
   border-radius: 16px;
   padding: 30px;
   width: 440px;
+  max-width: 100%;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   gap: 20px;
   animation: modalSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  margin: auto;
 }
 
 @keyframes modalSlide {

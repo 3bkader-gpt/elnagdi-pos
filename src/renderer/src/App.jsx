@@ -24,6 +24,7 @@ import { generateReceiptHtml, generateReprintHtml } from './lib/printTemplates'
 
 // Import Admin Dashboard Components
 import AdminDashboard from './components/admin/AdminDashboard'
+import TillsManagerTab from './components/admin/TillsManagerTab'
 
 // Import Modals Components
 import AppModals from './components/modals/AppModals'
@@ -38,6 +39,16 @@ function App() {
   const addProductBarcodeRef = useRef(null)
   // Stable ref so usePOSController can call parseScaleBarcode before useBarcode is declared
   const parseScaleBarcodeFnRef = useRef((bc) => ({ barcode: bc, isWeighted: false, qty: 1 }))
+
+  // Global override for native window.alert to prevent blocking Electron popups
+  useEffect(() => {
+    window.alert = (msg) => {
+      console.warn('[Alert Suppressed]:', msg)
+      if (triggerCustomAlert) {
+        triggerCustomAlert(String(msg || ''))
+      }
+    }
+  }, [])
 
   // useShift hook
   const {
@@ -309,20 +320,22 @@ function App() {
   const triggerAuditCheck = async () => {
     if (!currentShift) return
     try {
-      const grossRes = await executeQuery(`SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي';`)
+      const grossRes = await executeQuery(`SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total FROM sales WHERE shift_id = ${currentShift.id};`)
       const debtRes = await executeQuery(`SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'آجل';`)
+      const digitalRes = await executeQuery(`SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total FROM sales WHERE shift_id = ${currentShift.id} AND payment_type NOT IN ('نقدي', 'آجل');`)
       const repayRes = await executeQuery(`SELECT IFNULL(SUM(amount), 0) as total FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'inflow';`)
       const refundRes = await executeQuery(`SELECT IFNULL(SUM(amount), 0) as total FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow';`)
       
       const grossSales = parseFloat(grossRes[0]?.total) || 0
       const debtSales = parseFloat(debtRes[0]?.total) || 0
+      const digitalSales = parseFloat(digitalRes[0]?.total) || 0
       const repayTotal = parseFloat(repayRes[0]?.total) || 0
       const refundTotal = parseFloat(refundRes[0]?.total) || 0
       const initialCash = parseFloat(currentShift.initial_cash) || 0
       
-      const expected = initialCash + grossSales + repayTotal - refundTotal
+      const expected = initialCash + grossSales - debtSales - digitalSales + repayTotal - refundTotal
       setAuditExpectedCash(expected)
-      setAuditBreakdown({ grossSales, debtSales, refunds: refundTotal, repay: repayTotal, initialCash })
+      setAuditBreakdown({ grossSales, debtSales: debtSales + digitalSales, refunds: refundTotal, repay: repayTotal, initialCash })
       setAuditActualCash('')
       setAuditNotes('')
       setShowAuditModal(true)
@@ -498,6 +511,15 @@ function App() {
           handleReprintSale={handleReprintSale}
           {...adminController}
         />
+      ) : currentView === 'tills' ? (
+        <div style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
+          <TillsManagerTab
+            currentUser={currentUser}
+            currentShift={currentShift}
+            triggerCustomAlert={triggerCustomAlert}
+            triggerCustomConfirm={triggerCustomConfirm}
+          />
+        </div>
       ) : (
         <CheckoutTerminal
           cart={cart}
@@ -547,6 +569,7 @@ function App() {
           setSearchInput={setSearchInput}
           setSearchResults={setSearchResults}
           setSelectedSearchIndex={setSelectedSearchIndex}
+          triggerCustomAlert={triggerCustomAlert}
         />
       )}
 
@@ -593,7 +616,7 @@ function App() {
 
       {/* Periodic Safe Audit Dialog Modal */}
       {showAuditModal && (
-        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 99999 }}>
           <div 
             className="modal-content" 
             style={{ 

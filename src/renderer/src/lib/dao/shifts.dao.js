@@ -61,7 +61,7 @@ export async function openShift({ userId, startingCash, momknStartBalance = 0, v
  */
 export async function calculateExpectedShiftCash(shiftId, initialCash) {
   const salesRes = await executeQuery(`
-    SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0), total_amount)), 0) as total 
+    SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total 
     FROM sales 
     WHERE shift_id = ${shiftId} AND payment_type = 'نقدي';
   `)

@@ -1,5 +1,5 @@
 import React from 'react'
-import { ShoppingCart, Clock, User, Key, LogOut, Lock } from 'lucide-react'
+import { ShoppingCart, Clock, User, Key, LogOut, Lock, Wallet } from 'lucide-react'
 import packageInfo from '../../../../../package.json'
 
 export default function AppHeader({
@@ -26,7 +26,7 @@ export default function AppHeader({
         <span className="badge-status" style={{ background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)', marginRight: '8px' }}>
           v{packageInfo.version}
         </span>
-        {currentUser && currentUser.role === 'admin' && (
+        {currentUser && (
           <div className="header-nav" style={{ marginRight: '20px', display: 'flex', gap: '10px' }}>
             <button 
               className={`btn ${currentView === 'pos' ? 'btn-primary' : 'btn-secondary'}`} 
@@ -36,15 +36,26 @@ export default function AppHeader({
               شاشة الكاشير (POS)
             </button>
             <button 
-              className={`btn ${currentView === 'admin' ? 'btn-primary' : 'btn-secondary'}`} 
-              style={{ padding: '6px 12px', fontSize: '0.85rem' }} 
-              onClick={() => {
-                setCurrentView('admin')
-                fetchAdminData()
-              }}
+              className={`btn ${currentView === 'tills' ? 'btn-primary' : 'btn-secondary'}`} 
+              style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }} 
+              onClick={() => setCurrentView('tills')}
+              title="الأدراج والتحويلات الرقمية"
             >
-              إدارة المخزن والتقارير
+              <Wallet size={15} />
+              الأدراج
             </button>
+            {(currentUser.role === 'admin' || currentUser.role === 'manager') && (
+              <button 
+                className={`btn ${currentView === 'admin' ? 'btn-primary' : 'btn-secondary'}`} 
+                style={{ padding: '6px 12px', fontSize: '0.85rem' }} 
+                onClick={() => {
+                  setCurrentView('admin')
+                  fetchAdminData()
+                }}
+              >
+                إدارة المخزن والتقارير
+              </button>
+            )}
           </div>
         )}
       </div>
