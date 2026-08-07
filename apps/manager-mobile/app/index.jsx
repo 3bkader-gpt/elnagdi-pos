@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native'
+import { useRouter } from 'expo-router'
 import { useManagerStore } from '../src/store/useManagerStore'
 
 export default function ManagerDashboardScreen() {
   const { stats, activeShift, latestSales, setDashboardData, isLoading, setLoading } = useManagerStore()
   const [refreshing, setRefreshing] = useState(false)
+  const router = useRouter()
 
   const fetchLiveDashboard = async () => {
     setLoading(true)
@@ -39,6 +41,16 @@ export default function ManagerDashboardScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🏪 سوبر ماركت النجدي</Text>
         <Text style={styles.headerSubtitle}>شاشة المراقبة اللحظية للمالك 🟢 Live</Text>
+      </View>
+
+      {/* Navigation Quick Bar */}
+      <View style={styles.navBar}>
+        <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/scanner')}>
+          <Text style={styles.navBtnText}>📷 مسح الباركود والتعديل</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/debts')}>
+          <Text style={styles.navBtnText}>📖 دفتر الديون (الشكك)</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Active Shift Card */}
@@ -105,9 +117,12 @@ export default function ManagerDashboardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a', padding: 16 },
-  header: { marginBottom: 20, paddingTop: 20 },
+  header: { marginBottom: 12, paddingTop: 20 },
   headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#f8fafc', textAlign: 'right' },
   headerSubtitle: { fontSize: 14, color: '#38bdf8', textAlign: 'right', marginTop: 4 },
+  navBar: { flexDirection: 'row-reverse', justifyContent: 'space-between', marginBottom: 16 },
+  navBtn: { flex: 1, backgroundColor: '#1e293b', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#334155', marginHorizontal: 4, alignItems: 'center' },
+  navBtnText: { color: '#38bdf8', fontSize: 12, fontWeight: 'bold' },
   card: { backgroundColor: '#1e293b', padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: '#334155' },
   cardHeader: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#f1f5f9' },
