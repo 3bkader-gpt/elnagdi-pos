@@ -13,6 +13,7 @@ import AddSupplierModal from './AddSupplierModal'
 import AddPurchaseModal from './AddPurchaseModal'
 import AddCheckModal from './AddCheckModal'
 import CustomConfirmModal from './CustomConfirmModal'
+import InterTillTransferModal from './InterTillTransferModal'
 
 export default function AppModals({
   openShiftModal,
@@ -102,7 +103,11 @@ export default function AppModals({
   setShowAddCheckModal,
   newCheckForm,
   setNewCheckForm,
-  handleAddCheck
+  handleAddCheck,
+
+  showInterTillTransferModal,
+  setShowInterTillTransferModal,
+  handleInterTillTransfer
 }) {
   return (
     <>
@@ -223,6 +228,15 @@ export default function AppModals({
         newCheckForm={newCheckForm}
         setNewCheckForm={setNewCheckForm}
         handleAddCheck={handleAddCheck}
+      />
+
+      <InterTillTransferModal
+        isOpen={showInterTillTransferModal}
+        onClose={() => setShowInterTillTransferModal(false)}
+        onSubmit={async (data) => {
+          const success = await handleInterTillTransfer(data)
+          if (success) setShowInterTillTransferModal(false)
+        }}
       />
     </>
   )

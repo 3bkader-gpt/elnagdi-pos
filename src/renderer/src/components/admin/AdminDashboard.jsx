@@ -26,6 +26,7 @@ export default function AdminDashboard({
   triggerCustomConfirm,
   adminTab,
   setAdminTab,
+  onOpenInterTillTransfer,
   
   // StatsTab props
   analytics,
@@ -613,6 +614,7 @@ export default function AdminDashboard({
           currentShift={currentShift}
           triggerCustomAlert={triggerCustomAlert}
           triggerCustomConfirm={triggerCustomConfirm}
+          onOpenInterTillTransfer={onOpenInterTillTransfer}
         />
       )}
     </div>

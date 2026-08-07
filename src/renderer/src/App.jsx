@@ -169,6 +169,8 @@ function App() {
   })
 
 
+  const [showInterTillTransferModal, setShowInterTillTransferModal] = useState(false)
+
   // usePOSController hook — all checkout terminal handlers & states
   const {
     pin,
@@ -199,7 +201,8 @@ function App() {
     selectClient,
     handleManagerAuthSubmit,
     handleCheckout,
-    handleReprintSale
+    handleReprintSale,
+    handleInterTillTransfer
   } = usePOSController({
     currentUser,
     setCurrentUser,
@@ -509,6 +512,7 @@ function App() {
           setAdminTab={setAdminTab}
           adminSearchInputRef={adminSearchInputRef}
           handleReprintSale={handleReprintSale}
+          onOpenInterTillTransfer={() => setShowInterTillTransferModal(true)}
           {...adminController}
         />
       ) : currentView === 'tills' ? (
@@ -518,6 +522,7 @@ function App() {
             currentShift={currentShift}
             triggerCustomAlert={triggerCustomAlert}
             triggerCustomConfirm={triggerCustomConfirm}
+            onOpenInterTillTransfer={() => setShowInterTillTransferModal(true)}
           />
         </div>
       ) : (
@@ -604,6 +609,9 @@ function App() {
         setPendingAction={setPendingAction}
         handleManagerAuthSubmit={handleManagerAuthSubmit}
         addProductBarcodeRef={addProductBarcodeRef}
+        showInterTillTransferModal={showInterTillTransferModal}
+        setShowInterTillTransferModal={setShowInterTillTransferModal}
+        handleInterTillTransfer={handleInterTillTransfer}
         {...adminController}
       />
 

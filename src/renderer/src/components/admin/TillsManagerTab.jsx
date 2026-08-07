@@ -17,7 +17,8 @@ const TillsManagerTab = ({
   currentUser,
   currentShift,
   triggerCustomAlert,
-  triggerCustomConfirm
+  triggerCustomConfirm,
+  onOpenInterTillTransfer
 }) => {
   const [activeSubTab, setActiveSubTab] = useState('supermarket') // 'supermarket', 'momkn', 'mobile_money'
   const [mainDrawerSummary, setMainDrawerSummary] = useState({
@@ -170,29 +171,52 @@ const TillsManagerTab = ({
 
   return (
     <div className="tab-container" style={{ padding: '15px', backgroundColor: '#f9fafb', minHeight: '100vh' }}>
-      {/* Sub-Tabs Selector */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px' }}>
-        <button 
-          className={`btn ${activeSubTab === 'supermarket' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveSubTab('supermarket')}
-          style={{ padding: '8px 16px', fontWeight: 'bold' }}
-        >
-          🏪 درج السوبر ماركت (كاش)
-        </button>
-        <button 
-          className={`btn ${activeSubTab === 'momkn' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveSubTab('momkn')}
-          style={{ padding: '8px 16px', fontWeight: 'bold' }}
-        >
-          📊 درج ماكينة ممكن
-        </button>
-        <button 
-          className={`btn ${activeSubTab === 'mobile_money' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveSubTab('mobile_money')}
-          style={{ padding: '8px 16px', fontWeight: 'bold' }}
-        >
-          💰 درج المحافظ والتحويلات
-        </button>
+      {/* Sub-Tabs Selector & Inter-Till Transfer Action Button */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            className={`btn ${activeSubTab === 'supermarket' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveSubTab('supermarket')}
+            style={{ padding: '8px 16px', fontWeight: 'bold' }}
+          >
+            🏪 درج السوبر ماركت (كاش)
+          </button>
+          <button 
+            className={`btn ${activeSubTab === 'momkn' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveSubTab('momkn')}
+            style={{ padding: '8px 16px', fontWeight: 'bold' }}
+          >
+            📊 درج ماكينة ممكن
+          </button>
+          <button 
+            className={`btn ${activeSubTab === 'mobile_money' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveSubTab('mobile_money')}
+            style={{ padding: '8px 16px', fontWeight: 'bold' }}
+          >
+            💰 درج المحافظ والتحويلات
+          </button>
+        </div>
+
+        {onOpenInterTillTransfer && (
+          <button 
+            className="btn btn-primary"
+            onClick={onOpenInterTillTransfer}
+            style={{ 
+              backgroundColor: '#2563eb', 
+              color: '#ffffff', 
+              padding: '8px 18px', 
+              fontWeight: 'bold', 
+              fontSize: '0.95rem',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)'
+            }}
+          >
+            🔄 تحويل أموال بين الأدراج والخزائن
+          </button>
+        )}
       </div>
 
       {/* ───────────────────────────────────────────────────────────── */}

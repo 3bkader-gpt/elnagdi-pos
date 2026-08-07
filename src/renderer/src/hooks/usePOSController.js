@@ -167,7 +167,7 @@ export function usePOSController({
     const momknCashNum = parseFloat(momknStartCash) || 0
     const vfcashStartNum = parseFloat(vfcashStartBalance) || 0
     const vfcashCashNum = parseFloat(vfcashStartCash) || 0
-    if (startingCashNum < 0 || momknStartNum < 0 || momknCashNum < 0 || vfcashStartNum < 0 || vfcashCashNum < 0) return
+    if (isNaN(startingCashNum) || isNaN(momknStartNum) || isNaN(momknCashNum) || isNaN(vfcashStartNum) || isNaN(vfcashCashNum)) return
 
     try {
       if (!currentUser || !currentUser.id) {
@@ -202,6 +202,91 @@ export function usePOSController({
       console.error('Failed to open shift:', e)
       playSound('error')
       triggerCustomAlert('فشل فتح الوردية: ' + e.message)
+    }
+  }
+
+  // Handle Inter-Till Transfer
+  const handleInterTillTransfer = async ({ sourceTill, targetTill, sourceLabel, targetLabel, amount, notes }) => {
+    try {
+      const shiftId = currentShift?.id || 1
+      const nowStr = getNowStr()
+      const safeNotes = escapeSql(notes || '')
+      const safeSourceLabel = escapeSql(sourceLabel || sourceTill)
+      const safeTargetLabel = escapeSql(targetLabel || targetTill)
+
+      // 1. Process Source Till (Outflow)
+      if (sourceTill === 'momkn_cash') {
+        await executeQuery(`
+          INSERT INTO momkn_transactions (shift_id, timestamp, operation_type, description, digital_impact, cash_impact, commission, notes)
+          VALUES (${shiftId}, '${nowStr}', 'inter_till_transfer', 'تحويل مالي إلى ${safeTargetLabel}', 0, -${amount}, 0, '${safeNotes}');
+        `)
+      } else if (sourceTill === 'momkn_digital') {
+        await executeQuery(`
+          INSERT INTO momkn_transactions (shift_id, timestamp, operation_type, description, digital_impact, cash_impact, commission, notes)
+          VALUES (${shiftId}, '${nowStr}', 'inter_till_transfer', 'تحويل مالي إلى ${safeTargetLabel}', -${amount}, 0, 0, '${safeNotes}');
+        `)
+      } else if (sourceTill === 'vfcash_cash') {
+        await executeQuery(`
+          INSERT INTO mobile_money_transactions (shift_id, timestamp, platform, operation_type, digital_impact, cash_impact, commission, notes)
+          VALUES (${shiftId}, '${nowStr}', 'vodafone_cash', 'inter_till_transfer', 0, -${amount}, 0, 'تحويل مالي إلى ${safeTargetLabel}${safeNotes ? ' - ' + safeNotes : ''}');
+        `)
+      } else if (sourceTill === 'vfcash_digital') {
+        await executeQuery(`
+          INSERT INTO mobile_money_transactions (shift_id, timestamp, platform, operation_type, digital_impact, cash_impact, commission, notes)
+          VALUES (${shiftId}, '${nowStr}', 'vodafone_cash', 'inter_till_transfer', -${amount}, 0, 0, 'تحويل مالي إلى ${safeTargetLabel}${safeNotes ? ' - ' + safeNotes : ''}');
+        `)
+      } else if (sourceTill === 'supermarket_cash' || sourceTill === 'main_safe') {
+        await executeQuery(`
+          INSERT INTO safe_ledger (shift_id, type, amount, description, timestamp)
+          VALUES (${shiftId}, 'outflow', ${amount}, 'تحويل مالي إلى ${safeTargetLabel}${safeNotes ? ' - ' + safeNotes : ''}', '${nowStr}');
+        `)
+      }
+
+      // 2. Process Target Till (Inflow)
+      if (targetTill === 'momkn_cash') {
+        await executeQuery(`
+          INSERT INTO momkn_transactions (shift_id, timestamp, operation_type, description, digital_impact, cash_impact, commission, notes)
+          VALUES (${shiftId}, '${nowStr}', 'inter_till_transfer', 'تحويل مالي وارد من ${safeSourceLabel}', 0, ${amount}, 0, '${safeNotes}');
+        `)
+      } else if (targetTill === 'momkn_digital') {
+        await executeQuery(`
+          INSERT INTO momkn_transactions (shift_id, timestamp, operation_type, description, digital_impact, cash_impact, commission, notes)
+          VALUES (${shiftId}, '${nowStr}', 'inter_till_transfer', 'تحويل مالي وارد من ${safeSourceLabel}', ${amount}, 0, 0, '${safeNotes}');
+        `)
+      } else if (targetTill === 'vfcash_cash') {
+        await executeQuery(`
+          INSERT INTO mobile_money_transactions (shift_id, timestamp, platform, operation_type, digital_impact, cash_impact, commission, notes)
+          VALUES (${shiftId}, '${nowStr}', 'vodafone_cash', 'inter_till_transfer', 0, ${amount}, 0, 'تحويل مالي وارد من ${safeSourceLabel}${safeNotes ? ' - ' + safeNotes : ''}');
+        `)
+      } else if (targetTill === 'vfcash_digital') {
+        await executeQuery(`
+          INSERT INTO mobile_money_transactions (shift_id, timestamp, platform, operation_type, digital_impact, cash_impact, commission, notes)
+          VALUES (${shiftId}, '${nowStr}', 'vodafone_cash', 'inter_till_transfer', ${amount}, 0, 0, 'تحويل مالي وارد من ${safeSourceLabel}${safeNotes ? ' - ' + safeNotes : ''}');
+        `)
+      } else if (targetTill === 'supermarket_cash' || targetTill === 'main_safe') {
+        await executeQuery(`
+          INSERT INTO safe_ledger (shift_id, type, amount, description, timestamp)
+          VALUES (${shiftId}, 'inflow', ${amount}, 'تحويل مالي وارد من ${safeSourceLabel}${safeNotes ? ' - ' + safeNotes : ''}', '${nowStr}');
+        `)
+      }
+
+      await logEvent({
+        userId: currentUser?.id,
+        username: currentUser?.username,
+        actionType: 'till_transfer',
+        description: `تحويل مالي بمبلغ ${amount} ج.م من (${sourceLabel}) إلى (${targetLabel})`
+      })
+
+      playSound('chime')
+      if (setToastMessage) setToastMessage(`تم تحويل ${amount} ج.م بنجاح!`)
+      if (fetchAdminData) fetchAdminData()
+      if (fetchStats) fetchStats()
+      return true
+    } catch (err) {
+      console.error('Inter-till transfer failed:', err)
+      playSound('error')
+      triggerCustomAlert('فشل تحويل الأموال: ' + getFriendlyErrorMessage(err))
+      return false
     }
   }
 
@@ -929,6 +1014,7 @@ export function usePOSController({
     selectClient,
     handleManagerAuthSubmit,
     handleCheckout,
-    handleReprintSale
+    handleReprintSale,
+    handleInterTillTransfer
   }
 }

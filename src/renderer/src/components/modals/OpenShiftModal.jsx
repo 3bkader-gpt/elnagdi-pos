@@ -123,7 +123,7 @@ const OpenShiftModal = ({
                       style={inputStyle}
                       value={vfcashStartBalance} 
                       onChange={(e) => setVfcashStartBalance(e.target.value)}
-                      placeholder="0.00"
+                      placeholder="0.00 (يمكن إدخال بالسالب)"
                     />
                   </div>
                   <div>
@@ -134,10 +134,13 @@ const OpenShiftModal = ({
                       style={inputStyle}
                       value={vfcashStartCash} 
                       onChange={(e) => setVfcashStartCash(e.target.value)}
-                      placeholder="0.00"
+                      placeholder="0.00 (يمكن إدخال بالسالب)"
                     />
                   </div>
                 </div>
+                <small style={{ color: '#047857', fontSize: '0.75rem', marginTop: '6px', display: 'block' }}>
+                  💡 ملاحظة: يمكن كتابة رصيد بالسالب عادي (مثال: -3370) في حال تم سحب فلوس مسبقاً من الدرج.
+                </small>
               </div>
             </>
           )}
