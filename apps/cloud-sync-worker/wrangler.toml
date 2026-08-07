@@ -1,0 +1,9 @@
+name = "elnagdi-cloud-sync-worker"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "elnagdi-pos-db"
+database_id = "elnagdi-pos-d1-local-binding"

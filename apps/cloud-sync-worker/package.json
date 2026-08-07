@@ -1,0 +1,16 @@
+{
+  "name": "elnagdi-cloud-sync-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers Serverless API & D1 Sync for El-Nagdi Manager Mobile App",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "wrangler": "^3.109.2"
+  }
+}

@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { initializeDatabase, executeSql, dbPath } from './db'
+import { startDesktopSyncAgent } from './syncAgent'
 import fs from 'fs'
 import { initializePrinter } from './printer'
 
@@ -98,9 +99,10 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Initialize DB and Printer
+  // Initialize DB, Printer, and Cloud Sync Agent
   initializeDatabase()
   initializePrinter()
+  startDesktopSyncAgent()
 
   // IPC Typst shortages PDF Generator
   ipcMain.handle('generate-shortages-pdf', async (event, items) => {
