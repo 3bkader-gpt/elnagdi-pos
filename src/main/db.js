@@ -217,11 +217,105 @@ export async function initializeDatabase() {
         shift_id INTEGER NOT NULL,
         type TEXT NOT NULL,
         amount REAL NOT NULL,
-        description TEXT,
         timestamp TEXT NOT NULL,
         FOREIGN KEY(shift_id) REFERENCES shifts(id)
       );
     `)
+
+    // --- Cloud Sync Queue Table ---
+    await executeSql(`
+      CREATE TABLE IF NOT EXISTS sync_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        record_id TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
+        error_message TEXT,
+        created_at TEXT NOT NULL,
+        synced_at TEXT
+      );
+    `)
+
+    // --- Price Change Audit Log Table ---
+    await executeSql(`
+      CREATE TABLE IF NOT EXISTS price_change_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_barcode TEXT NOT NULL,
+        product_name TEXT,
+        old_price REAL NOT NULL,
+        new_price REAL NOT NULL,
+        modified_by TEXT,
+        source TEXT DEFAULT 'desktop',
+        timestamp TEXT NOT NULL
+      );
+    `)
+
+    // --- Revoked Tokens Table ---
+    await executeSql(`
+      CREATE TABLE IF NOT EXISTS revoked_tokens (
+        jti TEXT PRIMARY KEY,
+        revoked_at TEXT NOT NULL,
+        reason TEXT
+      );
+    `)
+
+    // --- SQLite Triggers for Automatic Change Tracking ---
+    try {
+      await executeSql(`
+        CREATE TRIGGER IF NOT EXISTS trg_sync_sales_insert
+        AFTER INSERT ON sales
+        BEGIN
+          INSERT INTO sync_queue (table_name, action_type, record_id, payload, created_at)
+          VALUES (
+            'sales',
+            'INSERT',
+            CAST(NEW.id AS TEXT),
+            json_object('id', NEW.id, 'shift_id', NEW.shift_id, 'timestamp', NEW.timestamp, 'total_amount', NEW.total_amount, 'original_amount', NEW.original_amount, 'discount', NEW.discount, 'payment_type', NEW.payment_type, 'client_name', NEW.client_name, 'client_id', NEW.client_id),
+            datetime('now', 'localtime')
+          );
+        END;
+      `)
+
+      await executeSql(`
+        CREATE TRIGGER IF NOT EXISTS trg_sync_shifts_update
+        AFTER UPDATE ON shifts
+        WHEN OLD.status = 'open' AND NEW.status = 'closed'
+        BEGIN
+          INSERT INTO sync_queue (table_name, action_type, record_id, payload, created_at)
+          VALUES (
+            'shifts',
+            'UPDATE',
+            CAST(NEW.id AS TEXT),
+            json_object('id', NEW.id, 'user_id', NEW.user_id, 'start_time', NEW.start_time, 'end_time', NEW.end_time, 'initial_cash', NEW.initial_cash, 'expected_end_cash', NEW.expected_end_cash, 'actual_end_cash', NEW.actual_end_cash, 'difference', NEW.difference, 'status', NEW.status),
+            datetime('now', 'localtime')
+          );
+        END;
+      `)
+
+      await executeSql(`
+        CREATE TRIGGER IF NOT EXISTS trg_price_change_audit
+        AFTER UPDATE ON products
+        WHEN OLD.retail_price <> NEW.retail_price
+        BEGIN
+          INSERT INTO price_change_log (product_barcode, product_name, old_price, new_price, modified_by, source, timestamp)
+          VALUES (NEW.barcode, NEW.name, OLD.retail_price, NEW.retail_price, 'كاشير / أدمن', 'desktop', datetime('now', 'localtime'));
+          
+          INSERT INTO sync_queue (table_name, action_type, record_id, payload, created_at)
+          VALUES (
+            'products',
+            'UPDATE',
+            NEW.barcode,
+            json_object('barcode', NEW.barcode, 'name', NEW.name, 'retail_price', NEW.retail_price, 'cost_price', NEW.cost_price, 'stock_qty', NEW.stock_qty),
+            datetime('now', 'localtime')
+          );
+        END;
+      `)
+      console.log('[DB] SQLite Triggers for Cloud Sync and Price Audit installed successfully.')
+    } catch (trgErr) {
+      console.error('[DB] Failed to install SQLite Triggers:', trgErr)
+    }
 
     // Performance optimization: foreign key indices
     try {
@@ -233,6 +327,7 @@ export async function initializeDatabase() {
         CREATE INDEX IF NOT EXISTS idx_safe_ledger_shift_id ON safe_ledger(shift_id);
         CREATE INDEX IF NOT EXISTS idx_client_ledger_client_id ON client_ledger(client_id);
         CREATE INDEX IF NOT EXISTS idx_supplier_ledger_supplier_id ON supplier_ledger(supplier_id);
+        CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status);
       `)
       console.log('[DB] Installed performance indices on foreign keys.')
     } catch (e) { console.error('Failed to create performance indices:', e) }
@@ -298,6 +393,31 @@ export async function initializeDatabase() {
     try {
       await executeSql(`ALTER TABLE sale_items ADD COLUMN returned_qty REAL DEFAULT 0.0;`)
       console.log('[DB] Migrated sale_items table: added returned_qty column.')
+    } catch (e) { /* Ignore if column already exists */ }
+
+    try {
+      await executeSql(`ALTER TABLE shifts ADD COLUMN actual_supermarket_cash REAL DEFAULT 0.0;`)
+      console.log('[DB] Migrated shifts table: added actual_supermarket_cash column.')
+    } catch (e) { /* Ignore if column already exists */ }
+
+    try {
+      await executeSql(`ALTER TABLE shifts ADD COLUMN actual_momkn_cash REAL DEFAULT 0.0;`)
+      console.log('[DB] Migrated shifts table: added actual_momkn_cash column.')
+    } catch (e) { /* Ignore if column already exists */ }
+
+    try {
+      await executeSql(`ALTER TABLE shifts ADD COLUMN actual_momkn_digital REAL DEFAULT 0.0;`)
+      console.log('[DB] Migrated shifts table: added actual_momkn_digital column.')
+    } catch (e) { /* Ignore if column already exists */ }
+
+    try {
+      await executeSql(`ALTER TABLE shifts ADD COLUMN actual_vfcash_cash REAL DEFAULT 0.0;`)
+      console.log('[DB] Migrated shifts table: added actual_vfcash_cash column.')
+    } catch (e) { /* Ignore if column already exists */ }
+
+    try {
+      await executeSql(`ALTER TABLE shifts ADD COLUMN actual_vfcash_digital REAL DEFAULT 0.0;`)
+      console.log('[DB] Migrated shifts table: added actual_vfcash_digital column.')
     } catch (e) { /* Ignore if column already exists */ }
 
     // Enforce database-level triggers for integrity

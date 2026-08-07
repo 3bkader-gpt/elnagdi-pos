@@ -6,6 +6,8 @@ import { initializeDatabase, executeSql, dbPath } from './db'
 import fs from 'fs'
 import { initializePrinter } from './printer'
 
+let timeOffset = 0
+
 // Silence logs and redirect warnings/errors to log file in production with 24-hour cleanup
 if (app.isPackaged) {
   const logPath = join(app.getPath('userData'), 'app.log')
@@ -55,6 +57,10 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.send('time-offset-updated', timeOffset)
   })
 
   // Forward renderer console logs (warnings and errors in production)
@@ -323,6 +329,62 @@ ${tableRows}  )
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  const https = require('https')
+  
+  const broadcastOffset = () => {
+    BrowserWindow.getAllWindows().forEach(w => {
+      w.webContents.send('time-offset-updated', timeOffset)
+    })
+  }
+
+  const syncTimeOffset = () => {
+    https.get('https://timeapi.io/api/time/current/zone?timeZone=Africa/Cairo', (res) => {
+      let data = ''
+      res.on('data', (chunk) => { data += chunk })
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed && parsed.dateTime) {
+            const serverTime = new Date(parsed.dateTime).getTime()
+            const localTime = Date.now()
+            timeOffset = serverTime - localTime
+            console.log('[TimeSync] Main process successfully synced. Offset (ms):', timeOffset)
+            broadcastOffset()
+          }
+        } catch (e) {
+          fallbackTimeSync()
+        }
+      })
+    }).on('error', () => {
+      fallbackTimeSync()
+    })
+  }
+
+  const fallbackTimeSync = () => {
+    https.get('https://worldtimeapi.org/api/timezone/Africa/Cairo', (res) => {
+      let data = ''
+      res.on('data', (chunk) => { data += chunk })
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed && parsed.datetime) {
+            const serverTime = new Date(parsed.datetime).getTime()
+            const localTime = Date.now()
+            timeOffset = serverTime - localTime
+            console.log('[TimeSync] Main process synced via fallback. Offset (ms):', timeOffset)
+            broadcastOffset()
+          }
+        } catch (_) {}
+      })
+    }).on('error', () => {})
+  }
+
+  syncTimeOffset()
+
+  ipcMain.handle('get-time-offset', () => {
+    return timeOffset
+  })
 
   createWindow()
 

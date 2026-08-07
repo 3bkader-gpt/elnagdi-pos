@@ -12,7 +12,8 @@ const api = {
     print: (htmlContent, options) => ipcRenderer.invoke('print-receipt', htmlContent, options)
   },
   generateShortagesPdf: (items) => ipcRenderer.invoke('generate-shortages-pdf', items),
-  printShortagesToPrinter: (items) => ipcRenderer.invoke('print-shortages-to-printer', items)
+  printShortagesToPrinter: (items) => ipcRenderer.invoke('print-shortages-to-printer', items),
+  getTimeOffset: () => ipcRenderer.invoke('get-time-offset')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

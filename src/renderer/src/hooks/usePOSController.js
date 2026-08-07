@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { escapeSql, normalizeDigits, playSound, getNowStr, getFriendlyErrorMessage, hashPin } from '../lib/utils'
+import { escapeSql, normalizeDigits, playSound, getNowStr, getFriendlyErrorMessage, hashPin, getCorrectedDate } from '../lib/utils'
 import { executeQuery } from '../lib/db'
 import { generateReceiptHtml, generateReprintHtml, generateGrandShiftReportHtml } from '../lib/printTemplates'
 import { logEvent } from '../lib/dao/logs.dao'
@@ -207,23 +207,47 @@ export function usePOSController({
 
   // Close Active Shift
   const handleConfirmCloseShift = async (aggregatedData) => {
-    const actual = parseFloat(actualEndCash) || 0
-    if (isNaN(actual) || actual < 0) {
-      triggerCustomAlert('الرجاء إدخال مبلغ صحيح.')
+    let actualSupermarket = 0
+    let actualVfcashCash = 0
+    let actualVfcashDigital = 0
+    let actualMomknCash = 0
+    let actualMomknDigital = 0
+
+    const isCashier = aggregatedData && ('supermarketCash' in aggregatedData)
+
+    if (isCashier) {
+      const leftFloat = aggregatedData.leftFloat !== false
+      const floatAmount = leftFloat ? 200 : 0
+      actualSupermarket = (parseFloat(aggregatedData.supermarketCash) || 0) + floatAmount
+      actualVfcashCash = parseFloat(aggregatedData.vfcashCash) || 0
+      actualVfcashDigital = parseFloat(aggregatedData.vfcashDigital) || 0
+      actualMomknCash = parseFloat(aggregatedData.momknCash) || 0
+      actualMomknDigital = parseFloat(aggregatedData.momknDigital) || 0
+    } else {
+      actualSupermarket = parseFloat(actualEndCash) || 0
+      // For Admin closing: if we have aggregated expected data, match actuals to it if not entered
+      if (aggregatedData && aggregatedData.grandTotalExpected) {
+        actualVfcashCash = aggregatedData.vfcashExpected || 0
+        actualMomknCash = aggregatedData.momknExpected || 0
+      }
+    }
+
+    if (isNaN(actualSupermarket) || actualSupermarket < 0) {
+      triggerCustomAlert('الرجاء إدخال مبالغ صحيحة.')
       return
     }
 
     try {
       const combinedRes = await executeQuery(`
         SELECT 
-          (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id}) as salesTotal,
-          (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'آجل') as debtSales,
-          (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type NOT IN ('نقدي', 'آجل')) as digitalSales,
-          (SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي') as cashSales,
+          (SELECT IFNULL(SUM(total_amount), 0) FROM sales WHERE shift_id = ${currentShift.id}) as salesTotal,
+          (SELECT IFNULL(SUM(total_amount), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'آجل') as debtSales,
+          (SELECT IFNULL(SUM(total_amount), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type NOT IN ('نقدي', 'آجل')) as digitalSales,
+          (SELECT IFNULL(SUM(total_amount), 0) FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'نقدي') as cashSales,
           (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'inflow') as repayTotal,
           (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow' AND (description LIKE 'مرتجع%')) as returnsTotal,
-          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow' AND (description LIKE 'دفعة لمورد%' OR description LIKE 'سداد دين مورد%')) as supplierTotal,
-          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow' AND (description NOT LIKE 'مرتجع%' AND description NOT LIKE 'دفعة لمورد%' AND description NOT LIKE 'سداد دين مورد%')) as expensesTotal,
+          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow' AND (description LIKE 'دفعة لم مورد%' OR description LIKE 'سداد دين مورد%')) as supplierTotal,
+          (SELECT IFNULL(SUM(amount), 0) FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow' AND (description NOT LIKE 'مرتجع%' AND description NOT LIKE 'دفعة لم مورد%' AND description NOT LIKE 'سداد دين مورد%')) as expensesTotal,
           (SELECT IFNULL(SUM(cash_impact), 0) FROM momkn_transactions WHERE shift_id = ${currentShift.id}) as momknCashImpact,
           (SELECT IFNULL(SUM(cash_impact), 0) FROM mobile_money_transactions WHERE shift_id = ${currentShift.id}) as mobileMoneyCashImpact;
       `)
@@ -236,19 +260,7 @@ export function usePOSController({
       const supplierOutflow = parseFloat(r.supplierTotal) || 0
       const generalOutflow = parseFloat(r.expensesTotal) || 0
       
-      const momknCashImpact = parseFloat(r.momknCashImpact) || 0
-      const mmCashImpact = parseFloat(r.mobileMoneyCashImpact) || 0
-
       const expectedMainCash = initialCash + cashSales + inflow - (returns + supplierOutflow + generalOutflow)
-
-      const momknStartCash = Number(currentShift?.momkn_start_cash) || 0
-      const vfcashStartCash = Number(currentShift?.vfcash_start_cash) || 0
-
-      const expectedMomknCash = momknStartCash + momknCashImpact
-      const expectedMobileMoneyCash = vfcashStartCash + mmCashImpact
-
-      const grandTotalExpected = expectedMainCash + expectedMomknCash + expectedMobileMoneyCash
-
       const expected = expectedMainCash
 
       const d = {
@@ -257,21 +269,31 @@ export function usePOSController({
         outflow: returns + supplierOutflow + generalOutflow
       }
 
-      const difference = actual - expected
+      const difference = actualSupermarket - expected
       const nowStr = getNowStr()
 
       const finalizeShiftClose = async () => {
         try {
           await executeQuery(`
             UPDATE shifts 
-            SET end_time = '${nowStr}', expected_end_cash = ${expected}, actual_end_cash = ${actual}, difference = ${difference}, status = 'closed'
+            SET 
+              end_time = '${nowStr}', 
+              expected_end_cash = ${expected}, 
+              actual_end_cash = ${actualSupermarket}, 
+              difference = ${difference}, 
+              status = 'closed',
+              actual_supermarket_cash = ${actualSupermarket},
+              actual_momkn_cash = ${actualMomknCash},
+              actual_momkn_digital = ${actualMomknDigital},
+              actual_vfcash_cash = ${actualVfcashCash},
+              actual_vfcash_digital = ${actualVfcashDigital}
             WHERE id = ${currentShift.id};
           `)
           await logEvent({
             userId: currentUser?.id,
             username: currentUser?.username,
             actionType: 'shift_close',
-            description: `إغلاق الوردية رقم #${currentShift.id} (الفعلي: ${actual?.toFixed(2)} ج.م، المتوقع: ${expected?.toFixed(2)} ج.م، الفرق: ${difference?.toFixed(2)} ج.م)`
+            description: `إغلاق الوردية رقم #${currentShift.id} (الفعلي: ${actualSupermarket?.toFixed(2)} ج.م، المتوقع: ${expected?.toFixed(2)} ج.م، الفرق: ${difference?.toFixed(2)} ج.م)`
           })
 
           // Trigger print report automatically!
@@ -665,6 +687,18 @@ export function usePOSController({
         }
       }
 
+      // تسجيل تلقائي في سجل المحافظ عند الدفع بفودافون كاش أو انستاباي لتظهر فوراً بداخل درج فودافون/المحفظة
+      if (paymentType === 'فودافون كاش' || paymentType === 'انستا باي' || paymentType === 'تحويل بنكي' || paymentType === 'محفظة / تحويل') {
+        let platformCode = 'vodafone_cash'
+        if (paymentType === 'انستا باي') platformCode = 'instapay'
+        else if (paymentType === 'تحويل بنكي') platformCode = 'bank_transfer'
+        
+        const clientNameStr = clientName && clientName.trim() ? escapeSql(clientName.trim()) : 'عميل كاشير'
+        const phoneAccStr = clientPhone && clientPhone.trim() ? escapeSql(clientPhone.trim()) : ''
+        
+        sqlQuery += `INSERT INTO mobile_money_transactions (shift_id, timestamp, platform, operation_type, digital_impact, cash_impact, commission, recipient_name, phone_or_account, notes) VALUES (${currentShift.id}, '${nowStr}', '${platformCode}', 'sale_payment', ${cartTotal}, 0.0, 0.0, '${clientNameStr}', '${phoneAccStr}', 'مبيعات كاشير فاتورة رقم #' || (SELECT MAX(id) FROM sales LIMIT 1));\n`
+      }
+
       sqlQuery += 'COMMIT;\n'
       await executeQuery(sqlQuery)
 
@@ -681,8 +715,9 @@ export function usePOSController({
 
       playSound('chime')
 
-      const datePart = new Date().toLocaleDateString('ar-EG')
-      const timePart = new Date().toLocaleTimeString('ar-EG')
+      const correctedNow = getCorrectedDate()
+      const datePart = correctedNow.toLocaleDateString('ar-EG')
+      const timePart = correctedNow.toLocaleTimeString('ar-EG')
 
       const receiptHtml = generateReceiptHtml({
         storeName: 'سوبر ماركت النجدي',

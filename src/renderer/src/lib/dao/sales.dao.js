@@ -184,6 +184,16 @@ export async function createSaleTransaction({ shiftId, cart, cartTotal, discount
     }
   }
 
+  if (paymentType === 'فودافون كاش' || paymentType === 'انستا باي' || paymentType === 'تحويل بنكي' || paymentType === 'محفظة / تحويل') {
+    let platformCode = 'vodafone_cash'
+    if (paymentType === 'انستا باي') platformCode = 'instapay'
+    else if (paymentType === 'تحويل بنكي') platformCode = 'bank_transfer'
+    
+    const clientNameStr = clientName ? escapeSql(clientName) : 'عميل كاشير'
+    sqlQuery += `INSERT INTO mobile_money_transactions (shift_id, timestamp, platform, operation_type, digital_impact, cash_impact, commission, recipient_name, phone_or_account, notes) 
+                 VALUES (${shiftId}, '${nowStr}', '${platformCode}', 'sale_payment', ${cartTotal}, 0.0, 0.0, '${clientNameStr}', '', 'مبيعات كاشير (${escapeSql(paymentType)}) فاتورة #' || (SELECT MAX(id) FROM sales LIMIT 1));\n`
+  }
+
   sqlQuery += 'COMMIT;\n'
   await executeQuery(sqlQuery)
 

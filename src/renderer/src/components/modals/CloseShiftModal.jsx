@@ -2,131 +2,155 @@ import React, { useState, useEffect } from 'react'
 import { LogOut, Calculator, Package, Smartphone, Wallet } from 'lucide-react'
 import { executeQuery } from '../../lib/db'
 
-const FLOAT_AMOUNT = 200 // عهدة الفكة الثابتة
-
-// Simple Close Shift Modal for Cashiers
+const FLOAT_AMOUNT = 200 // عهدة الفكة ا// Simple Close Shift Modal for Cashiers — Blind close with 5 manual inputs
 const SimpleCloseShiftModal = ({
   closeShiftModal,
   currentShift,
-  actualEndCash,
-  setActualEndCash,
   setCloseShiftModal,
   handleConfirmCloseShift
 }) => {
-  const [expected, setExpected] = useState(null)
-  const [withFloat, setWithFloat] = useState(true)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (!closeShiftModal || !currentShift) {
-      setExpected(null)
-      return
-    }
-    const fetchSimple = () => {
-      executeQuery(`
-        SELECT
-          ${currentShift.initial_cash || 0} as initial_cash,
-          COALESCE((SELECT SUM(total_amount) FROM sales WHERE shift_id=${currentShift.id} AND payment_type='نقدي'),0) as cash_sales,
-          COALESCE((SELECT SUM(amount) FROM safe_ledger WHERE shift_id=${currentShift.id} AND type='inflow'),0) as inflow,
-          COALESCE((SELECT SUM(amount) FROM safe_ledger WHERE shift_id=${currentShift.id} AND type='outflow'),0) as outflow
-      `).then(rows => {
-        if (rows && rows[0]) {
-          const r = rows[0]
-          const exp = Number(r.initial_cash) + Number(r.cash_sales) + Number(r.inflow) - Number(r.outflow)
-          setExpected(exp)
-        }
-        setLoading(false)
-      }).catch(() => setLoading(false))
-    }
-
-    fetchSimple()
-    const interval = setInterval(fetchSimple, 1000)
-    return () => clearInterval(interval)
-  }, [closeShiftModal, currentShift])
+  const [supermarketCash, setSupermarketCash] = useState('')
+  const [vfcashCash, setVfcashCash] = useState('')
+  const [vfcashDigital, setVfcashDigital] = useState('')
+  const [momknCash, setMomknCash] = useState('')
+  const [momknDigital, setMomknDigital] = useState('')
+  const [leftFloat, setLeftFloat] = useState(true)
 
   if (!closeShiftModal) return null
 
-  const handover = expected !== null ? Math.max(0, withFloat ? expected - FLOAT_AMOUNT : expected) : null
+  const handleConfirm = () => {
+    handleConfirmCloseShift({
+      supermarketCash: parseFloat(supermarketCash) || 0,
+      vfcashCash: parseFloat(vfcashCash) || 0,
+      vfcashDigital: parseFloat(vfcashDigital) || 0,
+      momknCash: parseFloat(momknCash) || 0,
+      momknDigital: parseFloat(momknDigital) || 0,
+      leftFloat: leftFloat
+    })
+  }
+
+  const labelStyle = { display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: 4, color: '#374151' }
+  const inputStyle = { fontSize: '1.05rem', fontWeight: '700', textAlign: 'center', width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid #d1d5db', color: '#111827', boxSizing: 'border-box' }
 
   return (
     <div className="modal-overlay" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 99999 }}>
-      <div className="modal-content" style={{ maxWidth: 460, width: '90%', background: '#ffffff', color: '#111827', padding: '24px', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-        <div className="modal-header" style={{ textAlign: 'center', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px', marginBottom: '16px' }}>
-          <LogOut size={38} style={{ color: '#ef4444', margin: '0 auto 12px auto', display: 'block' }} />
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>تسوية وإنهاء الوردية الحالية</h2>
-          <p style={{ margin: '4px 0 0 0', color: '#6b7280', fontSize: '0.88rem' }}>
+      <div className="modal-content" style={{ maxWidth: 460, width: '92%', background: '#ffffff', color: '#111827', padding: '20px 24px', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+
+        <div style={{ textAlign: 'center', borderBottom: '1px solid #e5e7eb', paddingBottom: '10px', marginBottom: '14px' }}>
+          <LogOut size={32} style={{ color: '#ef4444', margin: '0 auto 8px auto', display: 'block' }} />
+          <h2 style={{ fontSize: '1.15rem', fontWeight: 'bold', margin: 0 }}>إنهاء الوردية وجرد الأدراج</h2>
+          <p style={{ margin: '2px 0 0 0', color: '#6b7280', fontSize: '0.82rem' }}>
             الوردية #{currentShift?.id}
           </p>
         </div>
 
-        {/* Expected breakdown */}
-        <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#10b981', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Calculator size={14} /> حساب الدرج التلقائي
+        {/* Instructions */}
+        <div style={{ background: '#f3f4f6', borderRadius: 8, padding: '10px 12px', marginBottom: 14, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <Package size={14} style={{ color: '#4b5563', marginTop: 2, flexShrink: 0 }} />
+          <div style={{ fontSize: '0.78rem', color: '#4b5563', lineHeight: 1.5 }}>
+            <b>جرد الأدراج:</b> قم بعدّ مبالغ الكاش المادية في كل درج وكتابتها، بالإضافة لمراجعة الأرصدة الرقمية على الأجهزة وإدخالها.
           </div>
-          {loading && expected === null ? (
-            <div style={{ textAlign: 'center', color: '#6b7280', padding: '8px 0', fontSize: '0.85rem' }}>جاري الحساب...</div>
-          ) : expected !== null ? (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', fontSize: '0.85rem' }}>
-                <span style={{ color: '#4b5563' }}>المتوقع في الدرج:</span>
-                <span style={{ fontWeight: 700, color: '#111827', textAlign: 'left' }}>{expected.toFixed(2)} ج.م</span>
+        </div>
 
-                <span style={{ color: '#4b5563', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={withFloat}
-                    onChange={e => setWithFloat(e.target.checked)}
-                    style={{ accentColor: '#f59e0b', cursor: 'pointer', width: 14, height: 14 }}
-                  />
-                  عهدة الفكة (200 تبقى):
-                </span>
-                <span style={{ fontWeight: 700, color: withFloat ? '#f59e0b' : '#9ca3af', textAlign: 'left', textDecoration: withFloat ? 'none' : 'line-through' }}>- {FLOAT_AMOUNT.toFixed(2)} ج.م</span>
+        {/* Inputs list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+          
+          {/* Supermarket Till */}
+          <div style={{ background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: 8, padding: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+              <Calculator size={14} /> 1. درج السوبر ماركت الرئيسي
+            </div>
+            <div>
+              <label style={labelStyle}>المبلغ الفعلي لكاش السوبرماركت (ج.م) *</label>
+              <input
+                type="number"
+                style={{ ...inputStyle, fontSize: '1.2rem', borderColor: '#2563eb' }}
+                value={supermarketCash}
+                placeholder="0.00"
+                onChange={(e) => setSupermarketCash(e.target.value)}
+                autoFocus
+              />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: '#4b5563', marginTop: 8, cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={leftFloat}
+                  onChange={(e) => setLeftFloat(e.target.checked)}
+                  style={{ accentColor: '#2563eb', cursor: 'pointer', width: 14, height: 14 }}
+                />
+                خصم عهدة فكة (تركت 200 ج.م فكة في الدرج)
+              </label>
+            </div>
+          </div>
 
-                <span style={{ color: '#4b5563', borderTop: '1px solid #e5e7eb', paddingTop: 6 }}>مبلغ التوريد للمالك:</span>
-                <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#10b981', textAlign: 'left', borderTop: '1px solid #e5e7eb', paddingTop: 6 }}>
-                  {handover !== null ? handover.toFixed(2) : '—'} ج.م
-                </span>
+          {/* Vodafone Cash Till */}
+          <div style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: 8, padding: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+              <Wallet size={14} /> 2. درج فودافون كاش
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <label style={labelStyle}>كاش ورق بالدرج</label>
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={vfcashCash}
+                  placeholder="0.00"
+                  onChange={(e) => setVfcashCash(e.target.value)}
+                />
               </div>
-              <button
-                onClick={() => setActualEndCash(expected.toFixed(2))}
-                style={{ marginTop: 10, width: '100%', padding: '7px', borderRadius: 7, border: '1.5px solid #10b981', background: 'transparent', color: '#10b981', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit' }}
-              >
-                ← احسب تلقائياً ({expected.toFixed(2)} ج.م)
-              </button>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.85rem' }}>تعذّر حساب المتوقع</div>
-          )}
-        </div>
+              <div>
+                <label style={labelStyle}>الرصيد الرقمي بالمحفظة</label>
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={vfcashDigital}
+                  placeholder="0.00"
+                  onChange={(e) => setVfcashDigital(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
 
-        {/* Note */}
-        <div style={{ background: '#f3f4f6', padding: '10px 14px', borderRadius: 8, fontSize: '0.82rem', color: '#374151', marginBottom: 14 }}>
-          <Package size={13} style={{ verticalAlign: 'middle', marginLeft: 4 }} />
-          <b>نظام التوريد:</b> ضع مبلغ التوريد في ظرف وسلّمه للمالك. تبقى <b>200 ج.م</b> فكة في الدرج للشيفت التالي.
-        </div>
+          {/* Momkn Till */}
+          <div style={{ background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.15)', borderRadius: 8, padding: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#7c3aed', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+              <Smartphone size={14} /> 3. درج ماكينة ممكن
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <label style={labelStyle}>كاش ورق بالدرج</label>
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={momknCash}
+                  placeholder="0.00"
+                  onChange={(e) => setMomknCash(e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>الرصيد الرقمي بالماكينة</label>
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={momknDigital}
+                  placeholder="0.00"
+                  onChange={(e) => setMomknDigital(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
 
-        {/* Actual input */}
-        <div className="form-group" style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: '0.88rem', fontWeight: 'bold', marginBottom: 6, color: '#374151' }}>
-            المبلغ الفعلي الموجود بالدرج حالياً (ج.م)
-          </label>
-          <input
-            type="number"
-            className="form-input"
-            style={{ fontSize: '1.5rem', fontWeight: '700', textAlign: 'center', width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #d1d5db', color: '#111827' }}
-            value={actualEndCash}
-            placeholder="0.00"
-            onChange={(e) => setActualEndCash(e.target.value)}
-            autoFocus
-          />
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button className="btn btn-secondary" style={{ flex: 1, padding: 10 }} onClick={() => setCloseShiftModal(false)}>
             إلغاء
           </button>
-          <button className="btn btn-danger" style={{ flex: 1, padding: 10, backgroundColor: '#ef4444', color: '#ffffff', border: 'none', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer' }} onClick={() => handleConfirmCloseShift(null)}>
+          <button
+            className="btn btn-danger"
+            style={{ flex: 1, padding: 10, backgroundColor: '#ef4444', color: '#ffffff', border: 'none', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer' }}
+            onClick={handleConfirm}
+          >
             تأكيد وإنهاء الوردية
           </button>
         </div>
@@ -238,7 +262,7 @@ const AdvancedCloseShiftModal = ({
   const vfcashStartBalance = Number(currentShift?.vfcash_start_balance) || 0
   const vfcashStartCash = Number(currentShift?.vfcash_start_cash) || 0
 
-  const netOperationsCashImpact = data.cashSales + data.inflow - (data.supplierOutflow + data.generalOutflow)
+  const netOperationsCashImpact = data.cashSales + data.inflow - (data.returnsOutflow + data.supplierOutflow + data.generalOutflow)
   const supermarketExpectedDrawer = data.initialCash + netOperationsCashImpact
   
   const momknExpectedDigital = momknStartBalance + data.momknDigitalImpact
@@ -299,6 +323,13 @@ const AdvancedCloseShiftModal = ({
 
               <span style={{ color: '#4b5563' }}>مقبوضات تحصيل ديون عملاء (دخل الخزنة):</span>
               <span style={{ fontWeight: 700, textAlign: 'left', color: '#16a34a' }}>+ {data.inflow.toFixed(2)} ج.م</span>
+
+              {data.returnsOutflow > 0 && (
+                <>
+                  <span style={{ color: '#4b5563' }}>مرتجعات الفواتير (خارج من الخزنة):</span>
+                  <span style={{ fontWeight: 700, textAlign: 'left', color: '#dc2626' }}>- {data.returnsOutflow.toFixed(2)} ج.م</span>
+                </>
+              )}
 
               <span style={{ color: '#4b5563' }}>مدفوعات فواتير وصرف لموردين:</span>
               <span style={{ fontWeight: 700, textAlign: 'left', color: '#dc2626' }}>- {data.supplierOutflow.toFixed(2)} ج.م</span>

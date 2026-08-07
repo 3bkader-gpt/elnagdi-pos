@@ -38,6 +38,9 @@ const MobileMoneyOperationModal = ({
     } else if (operationType === 'withdraw_from_client') {
       // Withdrawal: We give client cash = transfer amount - commission
       setCashAmount(String(Math.max(0, dig - com)))
+    } else if (operationType === 'sale_payment') {
+      // Sale payment: Customer transferred to wallet for goods, 0 impact on cash drawer
+      setCashAmount('0')
     }
   }, [digitalAmount, commission, operationType])
 
@@ -64,6 +67,9 @@ const MobileMoneyOperationModal = ({
     } else if (operationType === 'withdraw_from_client') {
       digitalImpact = digVal  // digital wallet balance increases
       cashImpact = -cashVal   // cash drawer decreases (paid cash)
+    } else if (operationType === 'sale_payment') {
+      digitalImpact = digVal  // digital wallet balance increases
+      cashImpact = 0          // cash drawer unchanged (0)
     }
 
     onSubmit({
@@ -104,7 +110,7 @@ const MobileMoneyOperationModal = ({
       <div className="modal-content" style={{ maxWidth: '480px', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', backgroundColor: '#ffffff', color: '#111827', borderRadius: '12px', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
         <div className="modal-header" style={{ marginBottom: '16px' }}>
           <h2 style={{ color: '#111827', margin: 0, fontSize: '1.4rem' }}>تسجيل حركة محفظة / تحويل</h2>
-          <p style={{ color: '#6b7280', fontSize: '0.88rem', marginTop: '4px' }}>سجل حركة سحب أو إيداع لربط الكاش والأرصدة الرقمية</p>
+          <p style={{ color: '#6b7280', fontSize: '0.88rem', marginTop: '4px' }}>سجل حركة سحب أو إيداع أو مبيعات لربط الكاش والأرصدة الرقمية</p>
         </div>
         <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           
@@ -124,8 +130,8 @@ const MobileMoneyOperationModal = ({
 
           <div className="form-group">
             <label style={{ color: '#374151', fontWeight: '600', marginBottom: '6px', display: 'block' }}>نوع العملية *</label>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <label style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', backgroundColor: operationType === 'withdraw_from_client' ? '#ecfdf5' : '#ffffff', color: '#111827' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', backgroundColor: operationType === 'withdraw_from_client' ? '#ecfdf5' : '#ffffff', color: '#111827' }}>
                 <input 
                   type="radio" 
                   name="opType" 
@@ -135,7 +141,7 @@ const MobileMoneyOperationModal = ({
                 />
                 سحب من الزبون (المحل بيستلم رصيد وبيطلع كاش)
               </label>
-              <label style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', backgroundColor: operationType === 'deposit_to_client' ? '#ecfdf5' : '#ffffff', color: '#111827' }}>
+              <label style={{ padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', backgroundColor: operationType === 'deposit_to_client' ? '#ecfdf5' : '#ffffff', color: '#111827' }}>
                 <input 
                   type="radio" 
                   name="opType" 
@@ -144,6 +150,16 @@ const MobileMoneyOperationModal = ({
                   onChange={() => setOperationType('deposit_to_client')}
                 />
                 إيداع للزبون (المحل بيطلع رصيد وبيستلم كاش)
+              </label>
+              <label style={{ padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', backgroundColor: operationType === 'sale_payment' ? '#eff6ff' : '#ffffff', color: '#111827' }}>
+                <input 
+                  type="radio" 
+                  name="opType" 
+                  value="sale_payment"
+                  checked={operationType === 'sale_payment'}
+                  onChange={() => setOperationType('sale_payment')}
+                />
+                🛒 دفع ثمن بضاعة / مبيعات (زيادة رصيد المحفظة - لا كاش في الدرج)
               </label>
             </div>
           </div>
@@ -189,6 +205,7 @@ const MobileMoneyOperationModal = ({
             <small style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
               {operationType === 'deposit_to_client' && 'المستلم كاش من الزبون = رصيد التحويل + العمولة'}
               {operationType === 'withdraw_from_client' && 'المسحوب كاش للزبون من الدرج = رصيد التحويل - العمولة'}
+              {operationType === 'sale_payment' && 'تحصيل ثمن بضاعة: رصيد المحفظة يزداد، والدرج كاش لا يتأثر (0 ج.م)'}
             </small>
           </div>
 

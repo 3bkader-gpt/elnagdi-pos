@@ -17,6 +17,7 @@ import AdvancedStatsTab from './AdvancedStatsTab'
 import CashierPerformanceTab from './CashierPerformanceTab'
 import LogsTab from './LogsTab'
 import TillsManagerTab from './TillsManagerTab'
+import MonthlyReportsTab from './MonthlyReportsTab'
 
 export default function AdminDashboard({
   currentUser,
@@ -332,6 +333,16 @@ export default function AdminDashboard({
       }
     },
     {
+      id: 'monthly-reports',
+      title: 'التقارير المالية الشهرية',
+      desc: 'تقرير أداء شامل للشهر المالي المخصص (من يوم 6 إلى يوم 5) يشمل مبيعات الأدراج والخدمات وتصفية الكاشيرات.',
+      icon: '📅',
+      color: 'linear-gradient(135deg, #10b981, #059669)',
+      action: () => {
+        setAdminTab('monthly-reports')
+      }
+    },
+    {
       id: 'logs',
       title: 'سجل العمليات (Event Log)',
       desc: 'عرض ومتابعة كافة العمليات الإدارية وأنشطة الكاشيرات والورديات والنسخ الاحتياطي بالتوقيت.',
@@ -380,6 +391,7 @@ export default function AdminDashboard({
               {adminTab === 'backup' && '💾 النسخ الاحتياطي والأمان'}
               {adminTab === 'advanced-stats' && '📈 التقارير والتحليلات المتقدمة'}
               {adminTab === 'cashier-performance' && '⭐ تقييم أداء الكاشيرات'}
+              {adminTab === 'monthly-reports' && '📅 التقارير المالية الشهرية'}
               {adminTab === 'logs' && '📋 سجل العمليات والأنشطة (Event Log)'}
               {adminTab === 'tills' && '💳 الأدراج والتحويلات الرقمية'}
             </h2>
@@ -572,6 +584,10 @@ export default function AdminDashboard({
 
       {adminTab === 'cashier-performance' && (
         <CashierPerformanceTab />
+      )}
+
+      {adminTab === 'monthly-reports' && (
+        <MonthlyReportsTab />
       )}
 
       {adminTab === 'damaged' && (

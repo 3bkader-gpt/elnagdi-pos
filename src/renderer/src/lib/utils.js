@@ -147,10 +147,37 @@ export function parseLocaleDateString(str) {
   return new Date(year, month, day, hours, minutes, seconds)
 }
 
+let timeOffset = 0
+
+// Retrieve time offset from Main process to avoid CORS issues
+if (window.api && window.api.getTimeOffset) {
+  window.api.getTimeOffset()
+    .then(offset => {
+      timeOffset = Number(offset) || 0
+      console.log('[TimeSync] Received offset from Main process (ms):', timeOffset)
+    })
+    .catch(err => console.warn('[TimeSync] Failed to fetch offset from main:', err))
+}
+
+// Dynamically listen to updates sent by main process
+if (window.electron && window.electron.ipcRenderer) {
+  window.electron.ipcRenderer.on('time-offset-updated', (event, offset) => {
+    timeOffset = Number(offset) || 0
+    console.log('[TimeSync] Dynamic offset updated (ms):', timeOffset)
+  })
+}
+
+/**
+ * Returns a Date object corrected for system clock drift.
+ */
+export function getCorrectedDate() {
+  return new Date(Date.now() + timeOffset)
+}
+
 /**
  * Returns standard YYYY-MM-DD HH:mm:ss format for local date time.
  */
-export function getNowStr(d = new Date()) {
+export function getNowStr(d = getCorrectedDate()) {
   const pad = (n) => n.toString().padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }

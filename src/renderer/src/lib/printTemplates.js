@@ -268,3 +268,59 @@ export function generateGrandShiftReportHtml({ shift, salesStats = {}, user = {}
     </div>
   `
 }
+
+export function generateMonthlyReportHtml({ periodLabel, summary, cashiers }) {
+  const cashierRows = cashiers.map(c => `
+    <div style="display:flex; justify-content:space-between; font-size:10px;">
+      <span>${c.username} (${c.shifts_worked} ش):</span>
+      <span>${(c.sales_total || 0).toFixed(2)} ج.م (عجز: ${(c.total_shortage || 0).toFixed(2)})</span>
+    </div>
+  `).join('')
+
+  return `
+    <div style="font-family: 'Courier New', monospace; width: 80mm; padding: 5px; direction: rtl; font-size: 11px; color: #000; background: #fff;">
+      <div style="text-align: center; margin-bottom: 8px;">
+        <h3 style="margin:0; font-size:13px;">التقرير المالي الشهري</h3>
+        <p style="margin:3px 0; font-size:10px; font-weight:bold;">${periodLabel}</p>
+      </div>
+      <div style="border-bottom: 1px solid #000; margin: 4px 0;"></div>
+      
+      <div style="font-weight:bold; margin:4px 0; font-size:12px;">📊 ملخص السوبرماركت:</div>
+      <div style="display:flex; justify-content:space-between;">
+        <span>إجمالي المبيعات:</span>
+        <span>${(summary.supermarketSales || 0).toFixed(2)} ج.م</span>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span>النقدي بالدرج:</span>
+        <span>${(summary.cashSales || 0).toFixed(2)} ج.م</span>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span>الآجل (الديون):</span>
+        <span>${(summary.debtSales || 0).toFixed(2)} ج.م</span>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span>المصاريف والنثريات:</span>
+        <span>${(summary.expenses || 0).toFixed(2)} ج.م</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-weight:bold;">
+        <span>صافي الأرباح الحقيقية:</span>
+        <span>${(summary.netProfit || 0).toFixed(2)} ج.م</span>
+      </div>
+
+      <div style="border-bottom: 1px dashed #000; margin: 6px 0;"></div>
+      
+      <div style="font-weight:bold; margin:4px 0; font-size:12px;">💸 جرد الكاشيرات والعجز:</div>
+      ${cashierRows}
+      <div style="border-bottom: 1px dashed #000; margin: 6px 0;"></div>
+      <div style="display:flex; justify-content:space-between; font-weight:bold;">
+        <span>صافي عجز الوردية:</span>
+        <span>${(summary.difference || 0).toFixed(2)} ج.م</span>
+      </div>
+      
+      <div style="border-bottom: 1px dashed #000; margin: 6px 0;"></div>
+      <p style="text-align:center; font-size:9px; margin:0;">تاريخ الطباعة: ${new Date().toLocaleString('ar-EG')}</p>
+      <p style="text-align:center; font-size:9px; margin:0;">نظام إداري - الشروق POS</p>
+    </div>
+  `
+}
+

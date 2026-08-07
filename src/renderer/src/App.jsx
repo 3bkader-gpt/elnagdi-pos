@@ -320,9 +320,9 @@ function App() {
   const triggerAuditCheck = async () => {
     if (!currentShift) return
     try {
-      const grossRes = await executeQuery(`SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total FROM sales WHERE shift_id = ${currentShift.id};`)
-      const debtRes = await executeQuery(`SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'آجل';`)
-      const digitalRes = await executeQuery(`SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total FROM sales WHERE shift_id = ${currentShift.id} AND payment_type NOT IN ('نقدي', 'آجل');`)
+      const grossRes = await executeQuery(`SELECT IFNULL(SUM(total_amount), 0) as total FROM sales WHERE shift_id = ${currentShift.id};`)
+      const debtRes = await executeQuery(`SELECT IFNULL(SUM(total_amount), 0) as total FROM sales WHERE shift_id = ${currentShift.id} AND payment_type = 'آجل';`)
+      const digitalRes = await executeQuery(`SELECT IFNULL(SUM(total_amount), 0) as total FROM sales WHERE shift_id = ${currentShift.id} AND payment_type NOT IN ('نقدي', 'آجل');`)
       const repayRes = await executeQuery(`SELECT IFNULL(SUM(amount), 0) as total FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'inflow';`)
       const refundRes = await executeQuery(`SELECT IFNULL(SUM(amount), 0) as total FROM safe_ledger WHERE shift_id = ${currentShift.id} AND type = 'outflow';`)
       

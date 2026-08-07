@@ -45,22 +45,22 @@ const TillsManagerTab = ({
 
     try {
       const allSalesRes = await executeQuery(`
-        SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total 
+        SELECT IFNULL(SUM(total_amount), 0) as total 
         FROM sales 
         WHERE shift_id = ${shiftId};
       `)
       const cashSalesRes = await executeQuery(`
-        SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total 
+        SELECT IFNULL(SUM(total_amount), 0) as total 
         FROM sales 
         WHERE shift_id = ${shiftId} AND payment_type = 'نقدي';
       `)
       const debtRes = await executeQuery(`
-        SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total 
+        SELECT IFNULL(SUM(total_amount), 0) as total 
         FROM sales 
         WHERE shift_id = ${shiftId} AND payment_type = 'آجل';
       `)
       const digitalSalesRes = await executeQuery(`
-        SELECT IFNULL(SUM(COALESCE(NULLIF(original_amount, 0) - discount, total_amount)), 0) as total 
+        SELECT IFNULL(SUM(total_amount), 0) as total 
         FROM sales 
         WHERE shift_id = ${shiftId} AND payment_type NOT IN ('نقدي', 'آجل');
       `)
@@ -503,13 +503,21 @@ const TillsManagerTab = ({
                             borderRadius: '6px', 
                             fontSize: '0.78rem', 
                             fontWeight: '600',
-                            backgroundColor: t.operation_type === 'withdraw_from_client' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                            color: t.operation_type === 'withdraw_from_client' ? '#065f46' : '#991b1b',
-                            border: t.operation_type === 'withdraw_from_client' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)',
+                            backgroundColor: t.operation_type === 'sale_payment' 
+                              ? 'rgba(59,130,246,0.1)' 
+                              : (t.operation_type === 'withdraw_from_client' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'),
+                            color: t.operation_type === 'sale_payment' 
+                              ? '#1d4ed8' 
+                              : (t.operation_type === 'withdraw_from_client' ? '#065f46' : '#991b1b'),
+                            border: t.operation_type === 'sale_payment' 
+                              ? '1px solid rgba(59,130,246,0.2)' 
+                              : (t.operation_type === 'withdraw_from_client' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)'),
                             display: 'inline-block' 
                           }}
                         >
-                          {t.operation_type === 'withdraw_from_client' ? 'سحب من زبون (سائل)' : 'إيداع لزبون (رصيد)'}
+                          {t.operation_type === 'sale_payment' 
+                            ? '🛒 مبيعات بضاعة (تحويل)' 
+                            : (t.operation_type === 'withdraw_from_client' ? 'سحب من زبون (سائل)' : 'إيداع لزبون (رصيد)')}
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'center', color: (t.digital_impact || 0) >= 0 ? '#10b981' : '#ef4444', fontWeight: '700' }}>
