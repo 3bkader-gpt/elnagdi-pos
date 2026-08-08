@@ -227,8 +227,8 @@ function CheckoutTerminal({
                 />
               )}
               
-              {/* تفاصيل رصيد العميل وخيار استهلاك الرصيد */}
-              {selectedClient && (
+              {/* تفاصيل رصيد العميل وخيار استهلاك الرصيد (مخفية لملف المالك قطبي لعدم الملاحظة) */}
+              {selectedClient && (selectedClient.id !== 35 && !selectedClient.name?.includes('قطبي') && !selectedClient.phone?.includes('01023100767')) && (
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '6px', width: '100%' }}>
                   <div>
                     {selectedClient.debt_balance < 0 ? (
