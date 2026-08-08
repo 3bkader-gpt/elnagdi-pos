@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Search, Tag, Grid, List, Printer, Share2, Filter, RefreshCw, CheckCircle, Award } from 'lucide-react'
+import { Search, Tag, Grid, List, Printer, Share2, Filter, RefreshCw, CheckCircle, Award, QrCode, Smartphone } from 'lucide-react'
 import { executeQuery } from '../../lib/db'
+import CustomerQRModal from '../modals/CustomerQRModal'
+import CustomerMobilePreviewModal from '../modals/CustomerMobilePreviewModal'
 
 export default function PriceCatalogTab({ onAddToCart }) {
   const [products, setProducts] = useState([])
@@ -10,6 +12,9 @@ export default function PriceCatalogTab({ onAddToCart }) {
   const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list' | 'menu'
   const [copiedNotification, setCopiedNotification] = useState(false)
   const [priceFilter, setPriceFilter] = useState('ALL') // 'ALL' | 'UNDER_10' | '10_TO_50' | 'ABOVE_50'
+
+  const [showQRModal, setShowQRModal] = useState(false)
+  const [showMobilePreview, setShowMobilePreview] = useState(false)
 
   // Fetch all active products
   const fetchCatalogProducts = async () => {
@@ -291,6 +296,22 @@ export default function PriceCatalogTab({ onAddToCart }) {
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button 
               className="btn btn-secondary" 
+              onClick={() => setShowQRModal(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
+            >
+              <QrCode size={16} />
+              📲 QR Code الزباين
+            </button>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setShowMobilePreview(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+            >
+              <Smartphone size={16} />
+              📱 معاينة الموبايل
+            </button>
+            <button 
+              className="btn btn-secondary" 
               onClick={handleCopyWhatsAppList}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
             >
@@ -535,6 +556,19 @@ export default function PriceCatalogTab({ onAddToCart }) {
 
         )}
       </div>
+
+      {/* Customer QR Code Modal */}
+      {showQRModal && (
+        <CustomerQRModal onClose={() => setShowQRModal(false)} />
+      )}
+
+      {/* Customer Mobile Menu Interactive Preview Modal */}
+      {showMobilePreview && (
+        <CustomerMobilePreviewModal 
+          products={products} 
+          onClose={() => setShowMobilePreview(false)} 
+        />
+      )}
 
     </div>
   )
