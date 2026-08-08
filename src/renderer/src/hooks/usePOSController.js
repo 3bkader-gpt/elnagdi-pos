@@ -817,18 +817,26 @@ export function usePOSController({
       const isOwnerSale = (clientId === 35 || (clientName && clientName.includes('قطبي')) || (clientPhone && clientPhone.includes('01023100767')))
       if (isOwnerSale && paymentType === 'آجل') {
         try {
-          const ownerRes = await executeQuery(`SELECT debt_balance FROM clients WHERE id = 35 OR phone = '01023100767' LIMIT 1;`)
-          const currentDebt = ownerRes?.[0]?.debt_balance || 0
-          const remainingCredit = currentDebt < 0 ? Math.abs(currentDebt) : -currentDebt
-
           const totalCostDeducted = cart.reduce((sum, item) => sum + (parseFloat(item.cost_price || item.price) * item.qty), 0)
           
+          // Calculate total accumulated cost price of all owner credit purchases
+          const ownerCostRes = await executeQuery(`
+            SELECT IFNULL(SUM(si.quantity * COALESCE(NULLIF(si.cost_price, 0), p.cost_price, si.unit_price)), 0) as total_cost
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
+            LEFT JOIN products p ON si.product_barcode = p.barcode
+            WHERE (s.client_id = 35 OR s.client_name LIKE '%قطبي%') AND s.payment_type = 'آجل';
+          `)
+          const accumulatedCost = ownerCostRes?.[0]?.total_cost || 0
+          const initialCredit = 1000.0
+          const realCreditRemaining = initialCredit - accumulatedCost
+
           const itemsLines = cart.map(item => {
             const costVal = parseFloat(item.cost_price || item.price)
-            return `• <b>${item.name}</b>\n  الكمية: ${item.qty} × ${item.price?.toFixed(2)} ج.م (بيع)\n  تكلفة الجملة: ${costVal?.toFixed(2)} ج.م`
+            return `• <b>${item.name}</b>\n  الكمية: ${item.qty} × ${item.price?.toFixed(2)} ج.م (سعر المحل)\n  تكلفة الجملة: ${costVal?.toFixed(2)} ج.م`
           }).join('\n\n')
 
-          const tgMessage = `🛒 <b>إشعار مسحوبات المالك الجديدة 🏪</b>
+          const tgMessage = `🛒 <b>إشعار مسحوبات المالك 🏪</b>
 ━━━━━━━━━━━━━━━━━━
 🆔 <b>رقم الفاتورة:</b> #${displaySaleId}
 ⏰ <b>الوقت والتاريخ:</b> ${nowStr}
@@ -837,13 +845,13 @@ export function usePOSController({
 ${itemsLines}
 
 💰 <b>الملخص المالي:</b>
-• إجمالي الفاتورة (سعر البيع): <b>${cartTotal?.toFixed(2)} ج.م</b>
-• المخصوم فعلياً (سعر التكلفة): <b>${totalCostDeducted?.toFixed(2)} ج.م</b>
+• إجمالي الفاتورة (ظاهر بالمحل): <b>${cartTotal?.toFixed(2)} ج.م</b>
+• المبلغ المخصوم كـ تكلفة: <b>${totalCostDeducted?.toFixed(2)} ج.م</b>
 
-💳 <b>الرصيد الكريديت المتبقي بحسابك:</b>
-• <code>${remainingCredit?.toFixed(2)} ج.م</code>
+💳 <b>رصيدك الكريديت الحقيقي المتبقي (سرّي):</b>
+• <code>${realCreditRemaining?.toFixed(2)} ج.م</code>
 ━━━━━━━━━━━━━━━━━━
-🟢 <i>تمت العملية في الخلفية بنجاح وعلبة الكاش بالدرج 0.00 ج.م</i>`
+🟢 <i>الظاهر في البرنامج بالمحل: مديونية عادية | علبة الكاش بالدرج: 0.00 ج.م</i>`
 
           fetch('https://api.telegram.org/bot8673600416:AAGU-2vthBUWsuHSqdM4tPohO6kbdr6HO3E/sendMessage', {
             method: 'POST',
