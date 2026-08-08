@@ -11,7 +11,8 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.elnagdi.managermobile"
+      "package": "com.elnagdi.managermobile",
+      "usesCleartextTraffic": true
     },
     "plugins": [
       "expo-router",

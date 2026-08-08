@@ -26,47 +26,74 @@ export default function BarcodeScannerScreen() {
     )
   }
 
-  const handleBarCodeScanned = ({ data }) => {
+  const handleBarCodeScanned = async ({ data }) => {
     if (scanned) return
     setScanned(true)
     setBarcode(data)
-    // Simulate/Fetch product lookup
     setProductName(`منتج باركود: ${data}`)
-    setCurrentPrice('25.00')
+    setCurrentPrice('—')
     setNewPrice('')
+
+    const endpoints = [
+      `http://192.168.1.7:5000/api/products/lookup?barcode=${data}`,
+      `http://127.0.0.1:5000/api/products/lookup?barcode=${data}`
+    ]
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url)
+        if (res.ok) {
+          const body = await res.json()
+          if (body.success && body.product) {
+            setProductName(body.product.name)
+            setCurrentPrice(parseFloat(body.product.retail_price).toFixed(2))
+            return
+          }
+        }
+      } catch (e) {}
+    }
   }
 
   const handleUpdatePrice = async () => {
     if (!newPrice || isNaN(newPrice) || parseFloat(newPrice) <= 0) {
-      Alert.alert('تنبيه', 'برجاء إدخال سعر صحراوي جديد صحيح')
+      Alert.alert('تنبيه', 'برجاء إدخال سعر جديد صحيح')
       return
     }
 
     setLoading(true)
-    try {
-      const response = await fetch('https://elnagdi-cloud-sync-worker.workers.dev/api/products/update-price', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          barcode: barcode,
-          new_price: parseFloat(newPrice),
-          updated_by: 'المالك من الموبايل'
-        })
-      })
+    const endpoints = [
+      'http://192.168.1.7:5000/api/products/update-price',
+      'http://127.0.0.1:5000/api/products/update-price'
+    ]
 
-      const resData = await response.json()
-      if (resData.success) {
-        Alert.alert('تم بنجاح 🚀', `تم تعديل سعر الصنف إلى ${newPrice} ج.م وإرسال التنبيه فوراً`)
-        setScanned(false)
-        setBarcode('')
-      } else {
-        Alert.alert('خطأ', resData.message || 'فشل تعديل السعر')
-      }
-    } catch (err) {
-      Alert.alert('خطأ شبكة', 'فشل الاتصال بالسيرفر السحابي')
-    } finally {
-      setLoading(false)
+    let updated = false
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            barcode: barcode,
+            new_price: parseFloat(newPrice),
+            updated_by: 'المالك من الموبايل'
+          })
+        })
+
+        const resData = await response.json()
+        if (resData.success) {
+          Alert.alert('تم بنجاح 🚀', `تم تعديل سعر الصنف إلى ${newPrice} ج.م وحدد بالبرنامج فورا`)
+          setScanned(false)
+          setBarcode('')
+          updated = true
+          break
+        }
+      } catch (err) {}
     }
+
+    if (!updated) {
+      Alert.alert('خطأ شبكة', 'تعذر الوصول إلى سيرفر المزامنة الخاص بالبرنامج')
+    }
+    setLoading(false)
   }
 
   return (

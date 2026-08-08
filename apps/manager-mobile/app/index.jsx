@@ -10,19 +10,38 @@ export default function ManagerDashboardScreen() {
 
   const fetchLiveDashboard = async () => {
     setLoading(true)
-    try {
-      // Connect to Cloudflare Worker API
-      const res = await fetch('https://elnagdi-cloud-sync-worker.workers.dev/api/dashboard/live')
-      const data = await res.json()
-      if (data.success) {
-        setDashboardData(data)
+    const endpoints = [
+      'http://localhost:5000/api/dashboard/live',
+      'http://127.0.0.1:5000/api/dashboard/live',
+      'http://192.168.1.7:5000/api/dashboard/live',
+      'https://elnagdi-cloud-sync-worker.workers.dev/api/dashboard/live'
+    ]
+
+    for (const url of endpoints) {
+      try {
+        console.log('[MobileSync] Attempting fetch:', url)
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 4000)
+        const res = await fetch(url, { 
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' }
+        })
+        clearTimeout(timeoutId)
+        
+        if (res.ok) {
+          const data = await res.json()
+          console.log('[MobileSync] SUCCESS from:', url, 'Data:', data.success)
+          if (data.success) {
+            setDashboardData(data)
+            return
+          }
+        }
+      } catch (err) {
+        console.log('[MobileSync] FAILED:', url, 'Error:', err.message)
       }
-    } catch (err) {
-      console.log('Error fetching live dashboard:', err)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
     }
+    setLoading(false)
+    setRefreshing(false)
   }
 
   useEffect(() => {

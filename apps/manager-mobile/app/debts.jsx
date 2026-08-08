@@ -1,13 +1,39 @@
-import React, { useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, TextInput } from 'react-native'
+import React, { useState, useEffect } from 'react'
+import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, TextInput, ActivityIndicator } from 'react-native'
 
 export default function CustomerDebtsScreen() {
   const [search, setSearch] = useState('')
-  const [debts, setDebts] = useState([
-    { id: 1, name: 'أحمد محمود', phone: '01012345678', balance: 350.50, last_sale: '2026-08-06' },
-    { id: 2, name: 'محمد علي', phone: '01123456789', balance: 120.00, last_sale: '2026-08-05' },
-    { id: 3, name: 'حسام حسن', phone: '01234567890', balance: 540.00, last_sale: '2026-08-04' },
-  ])
+  const [debts, setDebts] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchDebts = async () => {
+    const endpoints = [
+      'http://192.168.1.7:5000/api/debts',
+      'http://127.0.0.1:5000/api/debts',
+      'https://elnagdi-cloud-sync-worker.workers.dev/api/debts'
+    ]
+    for (const url of endpoints) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 3000)
+        const res = await fetch(url, { signal: controller.signal })
+        clearTimeout(timeoutId)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success && Array.isArray(data.debts)) {
+            setDebts(data.debts)
+            setLoading(false)
+            return
+          }
+        }
+      } catch (err) {}
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    fetchDebts()
+  }, [])
 
   const sendWhatsAppReminder = (phone, name, balance) => {
     const formattedPhone = phone.startsWith('0') ? `2${phone}` : phone

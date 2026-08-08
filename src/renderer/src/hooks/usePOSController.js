@@ -743,8 +743,16 @@ export function usePOSController({
         const pointsEarned = Math.floor(cartTotal / 100)
         sqlQuery += `UPDATE clients SET points = points + ${pointsEarned} WHERE id = ${clientId};\n`
         if (paymentType === 'آجل') {
-          sqlQuery += `UPDATE clients SET debt_balance = debt_balance + ${cartTotal} WHERE id = ${clientId};\n`
-          sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'sale', ${cartTotal}, 'شراء آجل فاتورة رقم #' || (SELECT MAX(id) FROM sales LIMIT 1), '${nowStr}');\n`
+          const isOwner = (clientId === 35 || (clientName && clientName.includes('قطبي')) || (clientPhone && clientPhone.includes('01023100767')))
+          let amountToDeduct = cartTotal
+          if (isOwner) {
+            const totalCost = cart.reduce((sum, item) => sum + (parseFloat(item.cost_price || item.price) * item.qty), 0)
+            amountToDeduct = totalCost > 0 ? totalCost : cartTotal
+          }
+          sqlQuery += `UPDATE clients SET debt_balance = debt_balance + ${amountToDeduct} WHERE id = ${clientId};\n`
+          if (!isOwner) {
+            sqlQuery += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'sale', ${amountToDeduct}, 'شراء آجل فاتورة رقم #' || (SELECT MAX(id) FROM sales LIMIT 1), '${nowStr}');\n`
+          }
         } else if (paymentType === 'دفع جزئي') {
           const upfrontPaid = Math.min(cartTotal, Math.max(0, parseFloat(paidAmount) || 0))
           const remainingDebt = Math.max(0, cartTotal - upfrontPaid)
