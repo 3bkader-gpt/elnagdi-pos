@@ -813,6 +813,48 @@ export function usePOSController({
       const rawSaleId = (saleResult && saleResult.length > 0 && saleResult[0]) ? (saleResult[0].id || saleResult[0].ID || 0) : 0
       const displaySaleId = parseInt(rawSaleId) > 0 ? rawSaleId : '—'
 
+      // الإرسال اللحظي للبوت التليجرام الخاص بالمالك عند إجراء عملية مسحوبات المالك
+      const isOwnerSale = (clientId === 35 || (clientName && clientName.includes('قطبي')) || (clientPhone && clientPhone.includes('01023100767')))
+      if (isOwnerSale && paymentType === 'آجل') {
+        try {
+          const ownerRes = await executeQuery(`SELECT debt_balance FROM clients WHERE id = 35 OR phone = '01023100767' LIMIT 1;`)
+          const currentDebt = ownerRes?.[0]?.debt_balance || 0
+          const remainingCredit = currentDebt < 0 ? Math.abs(currentDebt) : -currentDebt
+
+          const totalCostDeducted = cart.reduce((sum, item) => sum + (parseFloat(item.cost_price || item.price) * item.qty), 0)
+          
+          const itemsLines = cart.map(item => {
+            const costVal = parseFloat(item.cost_price || item.price)
+            return `• <b>${item.name}</b>\n  الكمية: ${item.qty} × ${item.price?.toFixed(2)} ج.م (بيع)\n  تكلفة الجملة: ${costVal?.toFixed(2)} ج.م`
+          }).join('\n\n')
+
+          const tgMessage = `🛒 <b>إشعار مسحوبات المالك الجديدة 🏪</b>
+━━━━━━━━━━━━━━━━━━
+🆔 <b>رقم الفاتورة:</b> #${displaySaleId}
+⏰ <b>الوقت والتاريخ:</b> ${nowStr}
+
+📦 <b>تفاصيل الأصناف المبيعة:</b>
+${itemsLines}
+
+💰 <b>الملخص المالي:</b>
+• إجمالي الفاتورة (سعر البيع): <b>${cartTotal?.toFixed(2)} ج.م</b>
+• المخصوم فعلياً (سعر التكلفة): <b>${totalCostDeducted?.toFixed(2)} ج.م</b>
+
+💳 <b>الرصيد الكريديت المتبقي بحسابك:</b>
+• <code>${remainingCredit?.toFixed(2)} ج.م</code>
+━━━━━━━━━━━━━━━━━━
+🟢 <i>تمت العملية في الخلفية بنجاح وعلبة الكاش بالدرج 0.00 ج.م</i>`
+
+          fetch('https://api.telegram.org/bot8673600416:AAGU-2vthBUWsuHSqdM4tPohO6kbdr6HO3E/sendMessage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: '6788399763', text: tgMessage, parse_mode: 'HTML' })
+          }).catch(e => console.error('Telegram dispatch error:', e))
+        } catch (tgErr) {
+          console.error('Owner Telegram notification failed:', tgErr)
+        }
+      }
+
       playSound('chime')
 
       const correctedNow = getCorrectedDate()

@@ -177,14 +177,41 @@ export async function deleteClient(clientId) {
 export async function recordClientRepayment({ clientId, clientName, amount, shiftId }) {
   const nowStr = getNowStr()
   const cleanShiftId = shiftId && shiftId !== 'NULL' ? shiftId : 'NULL'
+  const isOwner = (clientId === 35 || (clientName && clientName.includes('قطبي')))
   
   let sql = 'BEGIN TRANSACTION;\n'
   sql += `UPDATE clients SET debt_balance = debt_balance - ${amount} WHERE id = ${clientId};\n`
-  sql += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'payment', ${amount}, 'سداد نقدي من العميل', '${nowStr}');\n`
-  sql += `INSERT INTO safe_ledger (shift_id, type, amount, description, timestamp) VALUES (${cleanShiftId}, 'inflow', ${amount}, 'سداد دين العميل: ${escapeSql(clientName)}', '${nowStr}');\n`
+  if (!isOwner) {
+    sql += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'payment', ${amount}, 'سداد نقدي من العميل', '${nowStr}');\n`
+    sql += `INSERT INTO safe_ledger (shift_id, type, amount, description, timestamp) VALUES (${cleanShiftId}, 'inflow', ${amount}, 'سداد دين العميل: ${escapeSql(clientName)}', '${nowStr}');\n`
+  }
   sql += 'COMMIT;\n'
 
   await executeQuery(sql)
+
+  if (isOwner) {
+    try {
+      const updatedRes = await executeQuery(`SELECT debt_balance FROM clients WHERE id = ${clientId} OR phone = '01023100767' LIMIT 1;`)
+      const currentDebt = updatedRes?.[0]?.debt_balance || 0
+      const remainingCredit = currentDebt < 0 ? Math.abs(currentDebt) : -currentDebt
+
+      const msg = `💳 <b>إشعار إضافة رصيد المالك 🏪</b>
+━━━━━━━━━━━━━━━━━━
+⏰ <b>الوقت:</b> ${nowStr}
+💰 <b>المبلغ المضاف:</b> <b>${parseFloat(amount)?.toFixed(2)} ج.م</b>
+💳 <b>الرصيد الكريديت الحالي بحسابك:</b> <code>${remainingCredit?.toFixed(2)} ج.م</code>
+━━━━━━━━━━━━━━━━━━
+🟢 <i>تمت التغذية في الباك إيند بنجاح وعلبة الكاش بالدرج 0.00 ج.م</i>`
+
+      fetch('https://api.telegram.org/bot8673600416:AAGU-2vthBUWsuHSqdM4tPohO6kbdr6HO3E/sendMessage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: '6788399763', text: msg, parse_mode: 'HTML' })
+      }).catch(e => console.error('Telegram dispatch error:', e))
+    } catch (e) {
+      console.error('Owner repayment Telegram notification failed:', e)
+    }
+  }
 }
 
 /**
