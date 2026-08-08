@@ -10,7 +10,7 @@ let isPolling = false
 /**
  * Send HTTP POST request to Telegram API.
  */
-async function sendTelegramRequest(method, payload) {
+async function sendTelegramRequest(method, payload = {}) {
   try {
     const res = await fetch(`${TELEGRAM_API_URL}/${method}`, {
       method: 'POST',
@@ -58,14 +58,16 @@ async function handleTelegramMessage(msg) {
     return
   }
 
+  console.log('[TelegramBot] Processing owner command:', text)
+
   // 1. Start or Menu Reset Command
-  if (text === '/start' || text === '🔄 تحديث القائمة') {
+  if (text.includes('/start') || text.includes('تحديث القائمة')) {
     await sendMainMenu('👋 <b>أهلاً بك يا باشا في لوحة تحكم المحل 🏪</b>\nالتحكم التفاعلي بالكامل مفعّل الآن بين يديك:')
     return
   }
 
   // 2. Owner Real Credit Balance
-  if (text === '💳 رصيدي الكريديت' || text === '/credit') {
+  if (text.includes('رصيدي الكريديت') || text.includes('/credit')) {
     try {
       const ownerCostRes = executeSql(`
         SELECT IFNULL(SUM(si.quantity * COALESCE(NULLIF(si.cost_price, 0), p.cost_price, si.unit_price)), 0) as total_cost
@@ -99,7 +101,7 @@ async function handleTelegramMessage(msg) {
   }
 
   // 3. Today's Sales Summary
-  if (text === '📊 مبيعات اليوم' || text === '/stats') {
+  if (text.includes('مبيعات اليوم') || text.includes('/stats')) {
     try {
       const todaySales = executeSql(`
         SELECT 
@@ -109,7 +111,7 @@ async function handleTelegramMessage(msg) {
           IFNULL(SUM(CASE WHEN payment_type = 'آجل' THEN total_amount ELSE 0 END), 0) as debt,
           IFNULL(SUM(CASE WHEN payment_type NOT IN ('نقدي', 'آجل') THEN total_amount ELSE 0 END), 0) as digital
         FROM sales
-        WHERE timestamp LIKE datetime('now', 'localtime', 'start of day') || '%';
+        WHERE timestamp LIKE strftime('%Y-%m-%d', 'now', 'localtime') || '%';
       `)[0]
 
       const msgText = `📊 <b>تقرير مبيعات اليوم اللحظي 🏪</b>
@@ -118,7 +120,7 @@ async function handleTelegramMessage(msg) {
 🧾 <b>عدد الفواتير:</b> ${todaySales.count} فاتورة
 
 💵 <b>كاش نقدي:</b> ${todaySales.cash.toFixed(2)} ج.م
-📝 <b>مبيعات آجل (شكك):</b> ${todaySales.debt.toFixed(2)} ج.m
+📝 <b>مبيعات آجل (شكك):</b> ${todaySales.debt.toFixed(2)} ج.م
 💳 <b>محافظ انستا/فودافون:</b> ${todaySales.digital.toFixed(2)} ج.م
 ━━━━━━━━━━━━━━━━━━
 🟢 <i>بيانات محدثة تلقائياً من محطة POS الرئيسية</i>`
@@ -135,7 +137,7 @@ async function handleTelegramMessage(msg) {
   }
 
   // 4. Active Shift Status & Cash in Drawer
-  if (text === '💵 كاش الوردية الحالية' || text === '/shift') {
+  if (text.includes('كاش الوردية') || text.includes('/shift')) {
     try {
       const activeShift = executeSql("SELECT * FROM shifts WHERE status = 'open' ORDER BY id DESC LIMIT 1;")[0]
 
@@ -179,7 +181,7 @@ async function handleTelegramMessage(msg) {
   }
 
   // 5. Customer Debts List
-  if (text === '📖 كشف الديون' || text === '/debts') {
+  if (text.includes('كشف الديون') || text.includes('/debts')) {
     try {
       const debts = executeSql("SELECT name, phone, debt_balance FROM clients WHERE debt_balance > 0 ORDER BY debt_balance DESC LIMIT 8;")
       const totalDebtRes = executeSql("SELECT IFNULL(SUM(debt_balance), 0) as total FROM clients WHERE debt_balance > 0;")[0]
@@ -211,7 +213,7 @@ ${debtLines}
   }
 
   // 6. Low Stock Shortages Report
-  if (text === '📦 نواقص المخزن' || text === '/shortages') {
+  if (text.includes('نواقص المخزن') || text.includes('/shortages')) {
     try {
       const shortages = executeSql("SELECT name, stock_qty, reorder_limit, unit FROM products WHERE stock_qty <= reorder_limit AND reorder_limit > 0 ORDER BY stock_qty ASC LIMIT 10;")
 
@@ -283,7 +285,7 @@ async function pollTelegramUpdates() {
   try {
     const data = await sendTelegramRequest('getUpdates', {
       offset: lastUpdateId + 1,
-      timeout: 10
+      timeout: 5
     })
 
     if (data && data.ok && Array.isArray(data.result)) {
@@ -302,13 +304,16 @@ async function pollTelegramUpdates() {
 }
 
 /**
- * Start Telegram bot polling daemon service.
+ * Start Telegram bot service.
  */
-export function startTelegramBotService() {
+export async function startTelegramBotService() {
   console.log('Starting Telegram Bot Listener Service...')
   
+  // Ensure Webhook is deleted first to enable long polling
+  await sendTelegramRequest('deleteWebhook', { drop_pending_updates: false })
+
   // Set bot commands menu
-  sendTelegramRequest('setMyCommands', {
+  await sendTelegramRequest('setMyCommands', {
     commands: [
       { command: 'start', description: '🚀 فتح القائمة الرئيسية للبوت' },
       { command: 'credit', description: '💳 رصيد الكريديت الحقيقي للمالك' },
@@ -320,7 +325,7 @@ export function startTelegramBotService() {
   }).catch(() => {})
 
   // Send initial welcome keyboard menu
-  sendMainMenu('👋 <b>تم تفعيل الربط التفاعلي لبوت سوبرماركت النجدي 🏪</b>\nاستخدم الأزرار بالأسفل للاستعلام والتحكم اللحظي بالمحل:').catch(() => {})
+  sendMainMenu('👋 <b>تم تفعيل التحكم التفاعلي لبوت سوبرماركت النجدي 🏪</b>\nاستخدم الأزرار بالأسفل للاستعلام والتحكم اللحظي بالمحل:').catch(() => {})
 
   // Start continuous polling timer (every 2.5s)
   setInterval(pollTelegramUpdates, 2500)
