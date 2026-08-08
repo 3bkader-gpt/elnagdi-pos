@@ -181,8 +181,8 @@ export async function recordClientRepayment({ clientId, clientName, amount, shif
   
   let sql = 'BEGIN TRANSACTION;\n'
   sql += `UPDATE clients SET debt_balance = debt_balance - ${amount} WHERE id = ${clientId};\n`
+  sql += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'payment', ${amount}, 'سداد نقدي من العميل', '${nowStr}');\n`
   if (!isOwner) {
-    sql += `INSERT INTO client_ledger (client_id, type, amount, description, timestamp) VALUES (${clientId}, 'payment', ${amount}, 'سداد نقدي من العميل', '${nowStr}');\n`
     sql += `INSERT INTO safe_ledger (shift_id, type, amount, description, timestamp) VALUES (${cleanShiftId}, 'inflow', ${amount}, 'سداد دين العميل: ${escapeSql(clientName)}', '${nowStr}');\n`
   }
   sql += 'COMMIT;\n'
