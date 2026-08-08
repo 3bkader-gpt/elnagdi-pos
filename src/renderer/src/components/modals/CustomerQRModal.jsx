@@ -1,11 +1,26 @@
-import React, { useRef } from 'react'
-import { QrCode, Printer, Smartphone, X, Check, Copy } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { QrCode, Printer, X, Check, Copy, Receipt } from 'lucide-react'
+import QRCode from 'qrcode'
 
 export default function CustomerQRModal({ onClose, catalogUrl = 'https://elnagdi-pos.web.app/menu' }) {
-  const [copied, setCopied] = React.useState(false)
+  const [copied, setCopied] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState('')
 
-  // Generate QR Code SVG URL using quick open-source QR API
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(catalogUrl)}`
+  // Generate 100% offline QR code data URL
+  useEffect(() => {
+    QRCode.toDataURL(catalogUrl, {
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#0f172a',
+        light: '#ffffff'
+      }
+    }).then(url => {
+      setQrDataUrl(url)
+    }).catch(err => {
+      console.error('QR Generation failed:', err)
+    })
+  }, [catalogUrl])
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(catalogUrl)
@@ -13,8 +28,91 @@ export default function CustomerQRModal({ onClose, catalogUrl = 'https://elnagdi
     setTimeout(() => setCopied(false), 2500)
   }
 
-  // Print Counter Poster
+  // 1. Print Thermal Receipt Ticket (on thermal printer)
+  const handlePrintThermalReceipt = () => {
+    if (!qrDataUrl) return
+
+    const printHtml = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>كارت QR طابعة الفواتير</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@600;800;900&display=swap');
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+          body {
+            font-family: 'Cairo', sans-serif;
+            width: 72mm;
+            margin: 0 auto;
+            padding: 8px 0;
+            text-align: center;
+            color: #000;
+            background: #fff;
+          }
+          .store-name {
+            font-size: 16px;
+            font-weight: 900;
+            margin: 0;
+          }
+          .tagline {
+            font-size: 11px;
+            font-weight: 700;
+            margin: 3px 0 6px 0;
+          }
+          .divider {
+            border-top: 1.5px dashed #000;
+            margin: 6px 0;
+          }
+          .qr-img {
+            width: 52mm;
+            height: 52mm;
+            margin: 6px auto;
+            display: block;
+          }
+          .msg {
+            font-size: 11px;
+            font-weight: 800;
+            margin: 4px 0;
+            line-height: 1.3;
+          }
+          .phone {
+            font-size: 13px;
+            font-weight: 900;
+            margin-top: 4px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="store-name">🏪 سوبر ماركت النجدي</div>
+        <div class="tagline">📱 المنيو الرقمي وقائمة الأسعار</div>
+        <div class="divider"></div>
+        
+        <img class="qr-img" src="${qrDataUrl}" alt="QR Code" />
+        
+        <div class="divider"></div>
+        <div class="msg">📸 امسح الكود بموبايلك وشوف الأسعار واطلب دليفري فوراً!</div>
+        <div class="phone">📞 دليفري: 01023100767</div>
+        <div class="divider"></div>
+      </body>
+      </html>
+    `
+
+    const printWin = window.open('', '_blank')
+    printWin.document.write(printHtml)
+    printWin.document.close()
+    setTimeout(() => {
+      printWin.print()
+    }, 400)
+  }
+
+  // 2. Print Counter Poster (A4)
   const handlePrintPoster = () => {
+    if (!qrDataUrl) return
+
     const printHtml = `
       <!DOCTYPE html>
       <html dir="rtl" lang="ar">
@@ -91,7 +189,7 @@ export default function CustomerQRModal({ onClose, catalogUrl = 'https://elnagdi
           <div class="slogan">📱 قائمة الأسعار الرقمية التفاعلية</div>
           
           <div class="qr-box">
-            <img src="${qrApiUrl}" alt="QR Code" />
+            <img src="${qrDataUrl}" alt="QR Code" />
           </div>
 
           <div class="instructions">
@@ -111,11 +209,13 @@ export default function CustomerQRModal({ onClose, catalogUrl = 'https://elnagdi
     printWin.document.close()
     setTimeout(() => {
       printWin.print()
-    }, 500)
+    }, 400)
   }
 
-  // Print Small Delivery Bag Sticker Cards
+  // 3. Print Small Delivery Bag Sticker Cards
   const handlePrintBagStickers = () => {
+    if (!qrDataUrl) return
+
     const printHtml = `
       <!DOCTYPE html>
       <html dir="rtl" lang="ar">
@@ -175,7 +275,7 @@ export default function CustomerQRModal({ onClose, catalogUrl = 'https://elnagdi
         <div class="grid">
           ${Array(8).fill(0).map(() => `
             <div class="sticker">
-              <img src="${qrApiUrl}" alt="QR" />
+              <img src="${qrDataUrl}" alt="QR" />
               <div class="sticker-info">
                 <h3>🏪 سوبرماركت النجدي</h3>
                 <p>📸 امسح الكود وشوف الأسعار واطلب دليفري!</p>
@@ -193,7 +293,7 @@ export default function CustomerQRModal({ onClose, catalogUrl = 'https://elnagdi
     printWin.document.close()
     setTimeout(() => {
       printWin.print()
-    }, 500)
+    }, 400)
   }
 
   return (
@@ -218,7 +318,7 @@ export default function CustomerQRModal({ onClose, catalogUrl = 'https://elnagdi
         padding: '24px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px',
+        gap: '16px',
         boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
         position: 'relative'
       }}>
@@ -244,25 +344,31 @@ export default function CustomerQRModal({ onClose, catalogUrl = 'https://elnagdi
           background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(37, 99, 235, 0.1) 100%)',
           border: '2px dashed var(--accent-blue)',
           borderRadius: '16px',
-          padding: '20px',
+          padding: '16px',
           textAlign: 'center',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '12px'
+          gap: '10px'
         }}>
-          <img 
-            src={qrApiUrl} 
-            alt="Customer QR Code" 
-            style={{ 
-              width: '180px', 
-              height: '180px', 
-              borderRadius: '12px', 
-              boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
-              background: '#fff',
-              padding: '8px'
-            }} 
-          />
+          {qrDataUrl ? (
+            <img 
+              src={qrDataUrl} 
+              alt="Customer QR Code" 
+              style={{ 
+                width: '180px', 
+                height: '180px', 
+                borderRadius: '12px', 
+                boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+                background: '#fff',
+                padding: '8px'
+              }} 
+            />
+          ) : (
+            <div style={{ width: '180px', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', borderRadius: '12px' }}>
+              جاري إنشاء الكود...
+            </div>
+          )}
           <div>
             <div style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--text-main)' }}>🏪 سوبر ماركت النجدي</div>
             <div style={{ fontSize: '0.8rem', color: 'var(--accent-blue)', marginTop: '2px' }}>📸 امسح الكود بالموبايل لعرض قائمة الأسعار والطلب</div>
@@ -286,27 +392,52 @@ export default function CustomerQRModal({ onClose, catalogUrl = 'https://elnagdi
           </button>
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* Action Buttons for Printing */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          
+          {/* Thermal Receipt Printer Button */}
           <button 
             type="button" 
             className="btn btn-primary"
-            onClick={handlePrintPoster}
-            style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.9rem' }}
+            onClick={handlePrintThermalReceipt}
+            style={{ 
+              padding: '12px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '8px', 
+              fontSize: '0.95rem',
+              fontWeight: 'bold',
+              backgroundColor: 'var(--accent-emerald)',
+              borderColor: 'var(--accent-emerald)'
+            }}
           >
-            <Printer size={18} />
+            <Receipt size={20} />
+            🧾 طباعة كارت QR على طابعة الفواتير (ورق الكاشير)
+          </button>
+
+          {/* Counter Poster A4 */}
+          <button 
+            type="button" 
+            className="btn btn-secondary"
+            onClick={handlePrintPoster}
+            style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.85rem' }}
+          >
+            <Printer size={16} />
             🖨️ طباعة بوستر الكاونتر والباب (A4)
           </button>
 
+          {/* Bag Stickers 8 cards */}
           <button 
             type="button" 
             className="btn btn-secondary"
             onClick={handlePrintBagStickers}
-            style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.9rem' }}
+            style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '0.85rem' }}
           >
-            <Printer size={18} />
+            <Printer size={16} />
             🏷️ طباعة استيكرات كروت لشنط الدليفري (8 كروت)
           </button>
+
         </div>
 
       </div>
