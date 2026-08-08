@@ -74,7 +74,7 @@ async function handleTelegramMessage(msg) {
         FROM sale_items si
         JOIN sales s ON si.sale_id = s.id
         LEFT JOIN products p ON si.product_barcode = p.barcode
-        WHERE (s.client_id = 35 OR s.client_name LIKE '%قطبي%') AND s.payment_type = 'آجل';
+        WHERE (s.client_id = 35 OR s.client_name LIKE '%قطبي%' OR s.client_name LIKE '%01023100767%') AND (s.payment_type LIKE '%آجل%' OR s.payment_type LIKE '%اجل%' OR s.payment_type = 'آجل');
       `)
       const accumulatedCost = ownerCostRes?.[0]?.total_cost || 0
       const initialCredit = 1000.0
