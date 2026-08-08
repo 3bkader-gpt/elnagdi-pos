@@ -490,12 +490,14 @@ export function usePOSController({
     if (e) e.preventDefault()
     if (!barcodeInput) return
 
-    let rawInput = barcodeInput.trim()
+    let rawInput = barcodeInput.trim().replace(/[\r\n\t]/g, '')
+    if (!rawInput) return
     const cleanRaw = escapeSql(rawInput)
     try {
       let product = null
+      let parsed = parseScaleBarcode(rawInput)
 
-      // Try exact match, stripped leading zeros, or padded leading zero
+      // 1. Try exact match, stripped leading zeros, or padded leading zero
       const cleanRawStripped = cleanRaw.replace(/^0+/, '')
       const cleanRawPadded = '0' + cleanRaw
       const exactProducts = await executeQuery(`
@@ -508,8 +510,7 @@ export function usePOSController({
       if (exactProducts.length > 0) {
         product = exactProducts[0]
       } else {
-        // If no exact match, check weighted scale barcode parsing
-        let parsed = parseScaleBarcode(rawInput)
+        // 2. Check weighted scale barcode parsing
         const lookupProduct = async (p) => {
           if (p.isWeighted) {
             const code = escapeSql(p.barcode)
@@ -546,11 +547,14 @@ export function usePOSController({
         product = await lookupProduct(parsed)
       }
 
-      if (!product && !parsed.isWeighted && rawInput.length >= 6 && rawInput.length <= 12) {
+      // 3. Fallback suffix / substring match for barcodes of any length (including 13 & 14 digits)
+      if (!product && !parsed.isWeighted && rawInput.length >= 4) {
         const escaped = escapeSql(rawInput)
         const candidates = await executeQuery(`
           SELECT * FROM products
-          WHERE barcode LIKE '%${escaped}'
+          WHERE barcode = '${escaped}'
+             OR barcode LIKE '%${escaped}'
+             OR barcode LIKE '${escaped}%'
           LIMIT 5;
         `)
         if (candidates.length === 1) {
@@ -569,6 +573,9 @@ export function usePOSController({
         const missingBarcode = rawInput
         setBarcodeInput('')
         playSound('error')
+        if (triggerCustomAlert) {
+          triggerCustomAlert(`⚠️ عذراً: الباركود (${missingBarcode}) غير مسجل في قاعدة البيانات!`, 'صنف غير مسجل')
+        }
         setToastMessage({
           text: `رمز الباركود (${missingBarcode}) غير مسجل في قاعدة البيانات!`,
           type: 'error'
