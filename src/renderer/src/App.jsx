@@ -25,6 +25,7 @@ import { generateReceiptHtml, generateReprintHtml } from './lib/printTemplates'
 // Import Admin Dashboard Components
 import AdminDashboard from './components/admin/AdminDashboard'
 import TillsManagerTab from './components/admin/TillsManagerTab'
+import PriceCatalogTab from './components/pos/PriceCatalogTab'
 
 // Import Modals Components
 import AppModals from './components/modals/AppModals'
@@ -523,6 +524,15 @@ function App() {
             triggerCustomAlert={triggerCustomAlert}
             triggerCustomConfirm={triggerCustomConfirm}
             onOpenInterTillTransfer={() => setShowInterTillTransferModal(true)}
+          />
+        </div>
+      ) : currentView === 'price_catalog' ? (
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <PriceCatalogTab 
+            onAddToCart={(product) => {
+              handleBarcodeSubmit(product.barcode)
+              setCurrentView('pos')
+            }} 
           />
         </div>
       ) : (

@@ -1,5 +1,5 @@
 import React from 'react'
-import { ShoppingCart, Clock, User, Key, LogOut, Lock, Wallet } from 'lucide-react'
+import { ShoppingCart, Clock, User, Key, LogOut, Lock, Wallet, Tag } from 'lucide-react'
 import packageInfo from '../../../../../package.json'
 
 export default function AppHeader({
@@ -34,6 +34,15 @@ export default function AppHeader({
               onClick={() => setCurrentView('pos')}
             >
               شاشة الكاشير (POS)
+            </button>
+            <button 
+              className={`btn ${currentView === 'price_catalog' ? 'btn-primary' : 'btn-secondary'}`} 
+              style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }} 
+              onClick={() => setCurrentView('price_catalog')}
+              title="قائمة الأسعار التفاعلية والمنيو"
+            >
+              <Tag size={15} />
+              ليستة الأسعار
             </button>
             <button 
               className={`btn ${currentView === 'tills' ? 'btn-primary' : 'btn-secondary'}`} 
